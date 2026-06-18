@@ -66,6 +66,27 @@ WEAPON_TRAITS = sorted([
     "Nirnhoned", "Decisive", "Training", "Infused",
 ])
 
+WEAPON_TYPES = sorted([
+    "Axe", "Battle Axe", "Bow", "Dagger", "Greatsword",
+    "Ice Staff", "Inferno Staff", "Lightning Staff", "Mace", "Maul",
+    "Restoration Staff", "Shield", "Sword",
+])
+
+ENCHANT_SUGGESTIONS = sorted([
+    # weapon glyphs
+    "Absorb Health", "Absorb Magicka", "Absorb Stamina",
+    "Berserker", "Crusher", "Weakening",
+    "Disease Damage", "Flame Damage", "Frost Damage", "Shock Damage", "Poison Damage",
+    "Oblivion Damage", "Life Drain", "Prismatic Onslaught",
+    # armor glyphs
+    "Max Health", "Max Magicka", "Max Stamina", "Prismatic Defense",
+    "Health Recovery", "Magicka Recovery", "Stamina Recovery",
+    "Physical Resistance", "Spell Resistance",
+    "Reduce Block Cost", "Reduce Feat Cost", "Reduce Roll Dodge Cost", "Reduce Sprint Cost",
+    # jewelry glyphs
+    "Weapon Damage", "Spell Damage", "Shielding", "Bracing",
+])
+
 QUALITY_TIERS = ["Normal", "Fine", "Superior", "Epic", "Legendary"]
 
 MUNDUS_STONES = [

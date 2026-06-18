@@ -9,10 +9,12 @@ from PySide6.QtWidgets import (
 
 from eso_build_manager.constants import (
     ARMOR_WEIGHTS,
+    ENCHANT_SUGGESTIONS,
     GEAR_SLOTS,
     GEAR_TRAITS,
     JEWELRY_TRAITS,
     WEAPON_TRAITS,
+    WEAPON_TYPES,
 )
 from eso_build_manager.data_loader import load_set_details, load_set_names
 from eso_build_manager.models.gear import GearPiece
@@ -20,7 +22,8 @@ from eso_build_manager.models.gear import GearPiece
 _JEWELRY_SLOTS = {"Neck", "Ring 1", "Ring 2"}
 _WEAPON_SLOTS = {"Main Hand", "Off Hand", "Backup Main", "Backup Off"}
 _OFFHAND_SLOTS = {"Off Hand", "Backup Off"}
-_NO_WEIGHT_SLOTS = _JEWELRY_SLOTS | _WEAPON_SLOTS
+_MAINHAND_SLOTS = {"Main Hand", "Backup Main"}
+_NO_WEIGHT_SLOTS = _JEWELRY_SLOTS  # weapon slots handled separately
 
 _COL_SET = 0
 _COL_WEIGHT = 1
@@ -55,12 +58,14 @@ def _build_tooltip(name: str) -> str:
 
 
 class _SetDelegate(QStyledItemDelegate):
-    """Provides a QLineEdit with set-name autocomplete for the Set column."""
+    """Autocomplete for the Set and Enchant columns."""
 
     def createEditor(self, parent, option, index):
-        if index.column() == _COL_SET:
+        col = index.column()
+        if col in (_COL_SET, _COL_ENCHANT):
             edit = QLineEdit(parent)
-            c = QCompleter(_get_set_names(), edit)
+            names = _get_set_names() if col == _COL_SET else ENCHANT_SUGGESTIONS
+            c = QCompleter(names, edit)
             c.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
             c.setFilterMode(Qt.MatchFlag.MatchContains)
             c.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
@@ -69,16 +74,19 @@ class _SetDelegate(QStyledItemDelegate):
         return super().createEditor(parent, option, index)
 
     def setEditorData(self, editor, index):
-        if index.column() == _COL_SET and isinstance(editor, QLineEdit):
+        if index.column() in (_COL_SET, _COL_ENCHANT) and isinstance(editor, QLineEdit):
             editor.setText(index.data() or "")
         else:
             super().setEditorData(editor, index)
 
     def setModelData(self, editor, model, index):
-        if index.column() == _COL_SET and isinstance(editor, QLineEdit):
+        col = index.column()
+        if col == _COL_SET and isinstance(editor, QLineEdit):
             name = editor.text()
             model.setData(index, name)
             model.setData(index, _build_tooltip(name), Qt.ItemDataRole.ToolTipRole)
+        elif col == _COL_ENCHANT and isinstance(editor, QLineEdit):
+            model.setData(index, editor.text())
         else:
             super().setModelData(editor, model, index)
 
@@ -95,7 +103,7 @@ class GearTableWidget(QWidget):
 
         self._table = QTableWidget(len(GEAR_SLOTS), 4)
         self._table.setVerticalHeaderLabels(GEAR_SLOTS)
-        self._table.setHorizontalHeaderLabels(["Set", "Weight", "Trait", "Enchant"])
+        self._table.setHorizontalHeaderLabels(["Set", "Type / Weight", "Trait", "Enchant"])
         self._table.setItemDelegate(_SetDelegate(self._table))
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -111,6 +119,8 @@ class GearTableWidget(QWidget):
             if slot in _OFFHAND_SLOTS:
                 weight_combo.addItems(["—", "N/A"])
                 weight_combo.currentIndexChanged.connect(lambda _, r=row: self._on_offhand_changed(r))
+            elif slot in _MAINHAND_SLOTS:
+                weight_combo.addItems([""] + WEAPON_TYPES)
             elif slot in _NO_WEIGHT_SLOTS:
                 weight_combo.addItem("—")
                 weight_combo.setEnabled(False)
