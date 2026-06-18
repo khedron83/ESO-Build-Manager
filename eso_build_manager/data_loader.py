@@ -11,6 +11,7 @@ def _build_skill_line_map() -> dict[str, str]:
     global _SKILL_LINE_MAP
     if _SKILL_LINE_MAP:
         return _SKILL_LINE_MAP
+    # Primary source: skills.json
     path = _DATA_DIR / "skills.json"
     with path.open(encoding="utf-8") as f:
         for category in json.load(f):
@@ -19,6 +20,17 @@ def _build_skill_line_map() -> dict[str, str]:
                 _SKILL_LINE_MAP[skill["base"]] = line
                 for morph in skill["morphs"]:
                     _SKILL_LINE_MAP[morph] = line
+    # Fallback: skill_ids.json — catches any names missing/renamed in skills.json.
+    # Keys are "Category::LineName"; strip the prefix to get the line name.
+    ids_path = _DATA_DIR / "skill_ids.json"
+    with ids_path.open(encoding="utf-8") as f:
+        for key, skill_dict in json.load(f).items():
+            _, sep, line = key.partition("::")
+            if not sep:
+                continue  # key has no "::", skip (e.g. "Scribing")
+            for name in skill_dict:
+                if name not in _SKILL_LINE_MAP:
+                    _SKILL_LINE_MAP[name] = line
     return _SKILL_LINE_MAP
 
 
