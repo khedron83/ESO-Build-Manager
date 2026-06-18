@@ -1653,19 +1653,19 @@
         "morphs": []
       },
       {
-        "base": "Immovable Mountain",
+        "base": "Inexorable Descent",
         "morphs": []
       },
       {
-        "base": "Unstoppable Force",
+        "base": "Lead from the Front",
         "morphs": []
       },
       {
-        "base": "Rousing Roar",
+        "base": "Resolute Defense",
         "morphs": []
       },
       {
-        "base": "Recursive Flame",
+        "base": "Wildfire Embers",
         "morphs": []
       }
     ]
@@ -1675,15 +1675,11 @@
     "line": "Sorcerer",
     "skills": [
       {
+        "base": "Calculated Defense",
+        "morphs": []
+      },
+      {
         "base": "Conservation of Energy",
-        "morphs": []
-      },
-      {
-        "base": "Efficient Defense",
-        "morphs": []
-      },
-      {
-        "base": "Implosion",
         "morphs": []
       },
       {
@@ -1691,7 +1687,11 @@
         "morphs": []
       },
       {
-        "base": "Parallel Protection",
+        "base": "Sphere of Influence",
+        "morphs": []
+      },
+      {
+        "base": "Static Reverberation",
         "morphs": []
       }
     ]
@@ -1701,23 +1701,23 @@
     "line": "Nightblade",
     "skills": [
       {
-        "base": "Critical Motivation",
+        "base": "Above and Beyond",
         "morphs": []
       },
       {
-        "base": "Evasive Trance",
+        "base": "An Eye for Exploitation",
         "morphs": []
       },
       {
-        "base": "Detect Weakness",
+        "base": "Cutthroat's Focus",
+        "morphs": []
+      },
+      {
+        "base": "Nocturnal Inspiration",
         "morphs": []
       },
       {
         "base": "Share the Spoils",
-        "morphs": []
-      },
-      {
-        "base": "Above and Beyond",
         "morphs": []
       }
     ]
@@ -1727,23 +1727,23 @@
     "line": "Templar",
     "skills": [
       {
-        "base": "Hold the Line",
+        "base": "Bastion of Light",
         "morphs": []
       },
       {
-        "base": "Missionary of Light",
+        "base": "Bright Harbinger",
         "morphs": []
       },
       {
-        "base": "Sacred Anchor",
+        "base": "Devout Guardian",
         "morphs": []
       },
       {
-        "base": "Illuminary of Bravery",
+        "base": "Judgment's Brand",
         "morphs": []
       },
       {
-        "base": "In Radiance, Judgement",
+        "base": "Steadfast Candescence",
         "morphs": []
       }
     ]
@@ -1753,23 +1753,23 @@
     "line": "Warden",
     "skills": [
       {
-        "base": "Hypothermia",
+        "base": "Bountiful Harvest",
+        "morphs": []
+      },
+      {
+        "base": "Glacial Obstinance",
+        "morphs": []
+      },
+      {
+        "base": "Green-Keeper's Hide",
+        "morphs": []
+      },
+      {
+        "base": "Tundra's Maw",
         "morphs": []
       },
       {
         "base": "Wild Adaptation",
-        "morphs": []
-      },
-      {
-        "base": "Thick Hide",
-        "morphs": []
-      },
-      {
-        "base": "One with Winter",
-        "morphs": []
-      },
-      {
-        "base": "Nature's Bounty",
         "morphs": []
       }
     ]
@@ -1779,15 +1779,15 @@
     "line": "Necromancer",
     "skills": [
       {
-        "base": "Cycle of Death",
+        "base": "Cycle Unending",
         "morphs": []
       },
       {
-        "base": "At the Precipice",
+        "base": "Malevolent Promise",
         "morphs": []
       },
       {
-        "base": "Lord of the Cycle",
+        "base": "Nothing Wasted",
         "morphs": []
       },
       {
@@ -1795,7 +1795,7 @@
         "morphs": []
       },
       {
-        "base": "Nothing Wasted",
+        "base": "Veil's Forfeit",
         "morphs": []
       }
     ]
@@ -1805,23 +1805,23 @@
     "line": "Arcanist",
     "skills": [
       {
-        "base": "Abyssal Pact",
+        "base": "Abyssal Emergence",
         "morphs": []
       },
       {
-        "base": "Mind Over Matter",
+        "base": "Erudite's Rigor",
         "morphs": []
       },
       {
-        "base": "Manifest Destiny",
+        "base": "Fate Realigned",
         "morphs": []
       },
       {
-        "base": "Fleshborne Fate",
+        "base": "Ink-Scribe's Verve",
         "morphs": []
       },
       {
-        "base": "Self-Perpetuated Fate",
+        "base": "Unbound Potential",
         "morphs": []
       }
     ]
