@@ -5,12 +5,21 @@ from PySide6.QtWidgets import (
 )
 
 import eso_build_manager.storage.database as db
-from eso_build_manager.constants import CONTENT_TYPES, ESO_CLASSES, GAME_PATCHES, MUNDUS_STONES, ROLES
+from eso_build_manager.constants import (
+    CLASS_SKILL_LINES, CONTENT_TYPES, ESO_CLASSES, GAME_PATCHES, MUNDUS_STONES, ROLES,
+)
 from eso_build_manager.models.build import Build
 from eso_build_manager.ui.class_mastery_widget import ClassMasteryWidget
 from eso_build_manager.ui.cp_widget import CPWidget
 from eso_build_manager.ui.gear_table_widget import GearTableWidget
 from eso_build_manager.ui.skill_bar_widget import SkillBarWidget
+
+def _line_to_class(line: str) -> str:
+    for cls, lines in CLASS_SKILL_LINES.items():
+        if line in lines:
+            return cls
+    return ""
+
 
 _PH_CLASS = "— Class —"
 _PH_ROLE = "— Role —"
@@ -254,14 +263,9 @@ class BuildEditorPanel(QWidget):
             primary = self._combo_text(self._class_combo)
             sub1 = self._combo_text(self._sub1_combo)
             sub2 = self._combo_text(self._sub2_combo)
-            avail2 = [c for c in ESO_CLASSES if c != primary and c != sub1]
-            self._sub2_combo.blockSignals(True)
-            self._sub2_combo.clear()
-            self._sub2_combo.addItem(_PH_SUB2)
-            self._sub2_combo.addItems(avail2)
-            if sub2 in avail2:
-                self._sub2_combo.setCurrentText(sub2)
-            self._sub2_combo.blockSignals(False)
+            sub1_cls = _line_to_class(sub1)
+            exc2 = {c for c in [primary, sub1_cls] if c}
+            self._populate_subclass_combo(self._sub2_combo, exc2, sub2, _PH_SUB2)
             self._schedule_save()
 
     def _on_subclass_toggled(self, checked: bool) -> None:
@@ -285,24 +289,31 @@ class BuildEditorPanel(QWidget):
         for w in (self._sub1_label, self._sub1_combo, self._sub2_label, self._sub2_combo):
             w.setVisible(visible)
 
-    def _rebuild_sub_combos(self, primary: str, sub1_val: str, sub2_val: str) -> None:
-        avail1 = [c for c in ESO_CLASSES if c != primary]
-        self._sub1_combo.blockSignals(True)
-        self._sub1_combo.clear()
-        self._sub1_combo.addItem(_PH_SUB1)
-        self._sub1_combo.addItems(avail1)
-        if sub1_val in avail1:
-            self._sub1_combo.setCurrentText(sub1_val)
-        self._sub1_combo.blockSignals(False)
+    def _populate_subclass_combo(
+        self, combo: QComboBox, excluded_classes: set, current_val: str, placeholder: str
+    ) -> None:
+        """Fill combo with skill lines from non-excluded classes, grouped by class."""
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(placeholder)
+        for cls, lines in CLASS_SKILL_LINES.items():
+            if cls in excluded_classes:
+                continue
+            idx = combo.count()
+            combo.addItem(f"· {cls}")
+            combo.model().item(idx).setEnabled(False)
+            for line in lines:
+                combo.addItem(line)
+        idx = combo.findText(current_val)
+        combo.setCurrentIndex(idx if idx >= 0 else 0)
+        combo.blockSignals(False)
 
-        avail2 = [c for c in ESO_CLASSES if c != primary and c != sub1_val]
-        self._sub2_combo.blockSignals(True)
-        self._sub2_combo.clear()
-        self._sub2_combo.addItem(_PH_SUB2)
-        self._sub2_combo.addItems(avail2)
-        if sub2_val in avail2:
-            self._sub2_combo.setCurrentText(sub2_val)
-        self._sub2_combo.blockSignals(False)
+    def _rebuild_sub_combos(self, primary: str, sub1_val: str, sub2_val: str) -> None:
+        exc1 = {primary} if primary else set()
+        self._populate_subclass_combo(self._sub1_combo, exc1, sub1_val, _PH_SUB1)
+        sub1_cls = _line_to_class(sub1_val)
+        exc2 = exc1 | ({sub1_cls} if sub1_cls else set())
+        self._populate_subclass_combo(self._sub2_combo, exc2, sub2_val, _PH_SUB2)
 
     def _schedule_save(self) -> None:
         if not self._blocking and self._current_id is not None:

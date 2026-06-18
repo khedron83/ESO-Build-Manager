@@ -26,6 +26,16 @@ QUALITY_COLORS = {
     "Legendary": "#e5a635",
 }
 
+CLASS_SKILL_LINES: dict[str, list[str]] = {
+    "Arcanist":    ["Apocrypha", "Herald of the Tome", "Soldier of Apocrypha"],
+    "Dragonknight":["Ardent Flame", "Draconic Power", "Earthen Heart"],
+    "Necromancer": ["Bone Tyrant", "Grave Lord", "Living Death"],
+    "Nightblade":  ["Assassination", "Shadow", "Siphoning"],
+    "Sorcerer":    ["Daedric Summoning", "Dark Magic", "Storm Calling"],
+    "Templar":     ["Aedric Spear", "Dawn's Wrath", "Restoring Light"],
+    "Warden":      ["Animal Companions", "Green Balance", "Winter's Embrace"],
+}
+
 ESO_CLASSES = [
     "Arcanist",
     "Dragonknight",
