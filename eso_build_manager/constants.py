@@ -1,11 +1,10 @@
 APP_VERSION = "1.0.0"
 
 ROLE_COLORS = {
-    "Tank":    "#4a9eff",
-    "Healer":  "#4dbd74",
-    "MagDPS":  "#b06afc",
-    "StamDPS": "#f97316",
-    "Hybrid":  "#eab308",
+    "Tank":   "#4a9eff",
+    "Healer": "#4dbd74",
+    "DPS":    "#f97316",
+    "Hybrid": "#eab308",
 }
 
 CLASS_COLORS = {
@@ -46,7 +45,7 @@ ESO_CLASSES = [
     "Warden",
 ]
 
-ROLES = ["Healer", "Hybrid", "MagDPS", "StamDPS", "Tank"]
+ROLES = ["DPS", "Healer", "Hybrid", "Tank"]
 
 CONTENT_TYPES = ["Dungeon", "Overland", "PvP", "Solo", "Trial"]
 

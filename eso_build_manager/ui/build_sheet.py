@@ -14,7 +14,7 @@ _SHEET_ICON_SIZE = 64
 
 import eso_build_manager.storage.database as db
 from eso_build_manager.constants import (
-    CLASS_COLORS, GEAR_SLOTS, ROLE_COLORS,
+    CLASS_COLORS, ROLE_COLORS,
 )
 
 
@@ -119,6 +119,73 @@ class _SkillCard(QFrame):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             ))
+
+
+class _GearCard(QFrame):
+    def __init__(self, slot: str, piece, parent=None):
+        super().__init__(parent)
+        filled = piece and piece.set_name.strip()
+        two_hand = piece and piece.weight == "N/A"
+
+        if filled:
+            self.setStyleSheet("""
+                QFrame {
+                    border: 1px solid palette(mid);
+                    border-radius: 6px;
+                    background-color: rgba(255,255,255,0.03);
+                }
+                QLabel { border: none; background: transparent; }
+            """)
+        else:
+            self.setStyleSheet("""
+                QFrame {
+                    border: 1px dashed palette(mid);
+                    border-radius: 6px;
+                    background-color: transparent;
+                }
+                QLabel { border: none; background: transparent; }
+            """)
+
+        self.setMinimumWidth(110)
+        self.setMinimumHeight(72)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        vbox = QVBoxLayout(self)
+        vbox.setContentsMargins(8, 6, 8, 6)
+        vbox.setSpacing(2)
+
+        slot_lbl = QLabel(slot.upper())
+        slot_lbl.setStyleSheet(
+            "color: palette(placeholderText); font-size: 9px; font-weight: bold; letter-spacing: 1px;"
+        )
+        vbox.addWidget(slot_lbl)
+
+        if two_hand:
+            na = QLabel("N/A  (two-handed)")
+            na.setStyleSheet("color: palette(placeholderText); font-size: 10px; font-style: italic;")
+            vbox.addWidget(na)
+        elif filled:
+            set_lbl = QLabel(piece.set_name)
+            set_lbl.setWordWrap(True)
+            set_lbl.setStyleSheet("font-size: 12px; font-weight: 600;")
+            vbox.addWidget(set_lbl)
+
+            details = "  ·  ".join(p for p in [piece.weight, piece.trait] if p)
+            if details:
+                det = QLabel(details)
+                det.setStyleSheet("color: palette(placeholderText); font-size: 10px;")
+                vbox.addWidget(det)
+
+            if piece.enchant.strip():
+                enc = QLabel(piece.enchant)
+                enc.setStyleSheet("color: palette(placeholderText); font-size: 10px; font-style: italic;")
+                vbox.addWidget(enc)
+        else:
+            empty = QLabel("—")
+            empty.setStyleSheet("color: palette(placeholderText); font-size: 12px;")
+            vbox.addWidget(empty)
+
+        vbox.addStretch()
 
 
 def _section_label(text: str) -> QLabel:
@@ -381,46 +448,42 @@ class BuildSheetWidget(QWidget):
     def _gear_section(self, gear: list) -> QWidget:
         by_slot = {g.slot: g for g in gear}
 
+        _ARMOR = ["Head", "Shoulder", "Chest", "Hands", "Waist", "Legs", "Feet"]
+        _JEWELRY = ["Neck", "Ring 1", "Ring 2"]
+        _WEAPONS = ["Main Hand", "Off Hand", "Backup Main", "Backup Off"]
+
         w = QWidget()
         vbox = QVBoxLayout(w)
         vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(10)
+        vbox.setSpacing(12)
         vbox.addWidget(_section_label("Gear"))
 
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(16)
-        grid.setVerticalSpacing(5)
-        grid.setColumnMinimumWidth(0, 92)
-        grid.setColumnStretch(1, 3)
-        grid.setColumnStretch(2, 2)
+        def _sub_lbl(text: str) -> QLabel:
+            lbl = QLabel(text)
+            lbl.setStyleSheet(
+                "color: palette(placeholderText); font-size: 9px; font-weight: bold; letter-spacing: 2px;"
+            )
+            return lbl
 
-        for row, slot in enumerate(GEAR_SLOTS):
-            piece = by_slot.get(slot)
+        def _card_grid(slots: list, columns: int) -> QWidget:
+            container = QWidget()
+            grid = QGridLayout(container)
+            grid.setSpacing(6)
+            grid.setContentsMargins(0, 0, 0, 0)
+            for i, slot in enumerate(slots):
+                card = _GearCard(slot, by_slot.get(slot))
+                grid.addWidget(card, i // columns, i % columns)
+            for col in range(columns):
+                grid.setColumnStretch(col, 1)
+            return container
 
-            slot_lbl = QLabel(slot)
-            slot_lbl.setStyleSheet("color: palette(windowText); font-weight: bold; font-size: 11px;")
-            grid.addWidget(slot_lbl, row, 0)
+        vbox.addWidget(_sub_lbl("ARMOR"))
+        vbox.addWidget(_card_grid(_ARMOR, 4))
+        vbox.addWidget(_sub_lbl("JEWELRY"))
+        vbox.addWidget(_card_grid(_JEWELRY, 3))
+        vbox.addWidget(_sub_lbl("WEAPONS"))
+        vbox.addWidget(_card_grid(_WEAPONS, 4))
 
-            if piece and piece.weight == "N/A":
-                na_lbl = QLabel("N/A  (two-handed)")
-                na_lbl.setStyleSheet("color: palette(placeholderText); font-size: 11px; font-style: italic;")
-                grid.addWidget(na_lbl, row, 1, 1, 3)
-            elif piece and piece.set_name.strip():
-                set_lbl = QLabel(piece.set_name)
-                set_lbl.setStyleSheet("font-weight: 600; font-size: 13px;")
-                grid.addWidget(set_lbl, row, 1)
-
-                details = "  ·  ".join(p for p in [piece.weight, piece.trait] if p)
-                if details:
-                    det_lbl = QLabel(details)
-                    det_lbl.setStyleSheet("color: palette(placeholderText); font-size: 11px;")
-                    grid.addWidget(det_lbl, row, 2)
-            else:
-                empty = QLabel("—")
-                empty.setStyleSheet("color: #444455;")
-                grid.addWidget(empty, row, 1)
-
-        vbox.addLayout(grid)
         return w
 
     def _stats_section(self, build) -> QWidget:

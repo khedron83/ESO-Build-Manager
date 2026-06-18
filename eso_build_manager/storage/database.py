@@ -96,13 +96,13 @@ def list_builds() -> list[tuple[int, str]]:
         return [(r["id"], r["name"]) for r in rows]
 
 
-def list_builds_meta() -> list[tuple[int, str, str, str]]:
-    """Returns (id, name, role, eso_class) sorted by updated_at DESC."""
+def list_builds_meta() -> list[tuple[int, str, str, str, str]]:
+    """Returns (id, name, role, eso_class, content) sorted by updated_at DESC."""
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT id, name, role, eso_class FROM builds ORDER BY updated_at DESC"
+            "SELECT id, name, role, eso_class, content FROM builds ORDER BY updated_at DESC"
         ).fetchall()
-        return [(r["id"], r["name"], r["role"], r["eso_class"]) for r in rows]
+        return [(r["id"], r["name"], r["role"], r["eso_class"], r["content"] or "") for r in rows]
 
 
 def get_build(build_id: int) -> Optional[Build]:

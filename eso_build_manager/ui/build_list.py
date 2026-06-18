@@ -9,7 +9,9 @@ import eso_build_manager.storage.database as db
 from eso_build_manager.constants import CLASS_COLORS, ROLE_COLORS
 from eso_build_manager.models.build import Build
 
-_ROLE_ORDER = ["Tank", "Healer", "MagDPS", "StamDPS", "Hybrid", ""]
+_ROLE_ORDER = ["Tank", "Healer", "DPS", "Hybrid", ""]
+_CONTENT_ORDER = ["Dungeon", "Trial", "Solo", "Overland", "PvP", ""]
+_ROLE_ALIAS = {"MagDPS": "DPS", "StamDPS": "DPS"}
 
 
 class BuildListPanel(QWidget):
@@ -72,7 +74,7 @@ class BuildListPanel(QWidget):
         self._tree.currentItemChanged.connect(self._on_item_changed)
         layout.addWidget(self._tree)
 
-        self._all_builds: list[tuple[int, str, str, str]] = []
+        self._all_builds: list[tuple[int, str, str, str, str]] = []
         self._build_items: dict[int, QTreeWidgetItem] = {}
         self.refresh()
 
@@ -94,8 +96,8 @@ class BuildListPanel(QWidget):
             item.setText(0, name)
             bid = item.data(0, Qt.ItemDataRole.UserRole)
             self._all_builds = [
-                (i, name if i == bid else n, r, c)
-                for i, n, r, c in self._all_builds
+                (i, name if i == bid else n, r, c, ct)
+                for i, n, r, c, ct in self._all_builds
             ]
 
     # ── Tree building ─────────────────────────────────────────────────────
@@ -108,23 +110,27 @@ class BuildListPanel(QWidget):
         self._build_items.clear()
 
         term = filter_text.lower().strip()
-        by_role: dict[str, list] = {r: [] for r in _ROLE_ORDER}
-        for build_id, name, role, eso_class in self._all_builds:
+        # by_role → by_content → [(id, name, eso_class)]
+        by_role: dict[str, dict[str, list]] = {r: {} for r in _ROLE_ORDER}
+        for build_id, name, role, eso_class, content in self._all_builds:
             if term and term not in name.lower() and term not in (eso_class or "").lower():
                 continue
-            key = role if role in by_role else ""
-            by_role[key].append((build_id, name, eso_class or ""))
+            role_key = _ROLE_ALIAS.get(role, role)
+            if role_key not in by_role:
+                role_key = ""
+            content_key = content or ""
+            by_role[role_key].setdefault(content_key, []).append((build_id, name, eso_class or ""))
 
-        group_row = 0
         for role in _ROLE_ORDER:
-            builds = by_role[role]
-            if not builds and term:
-                continue  # hide empty groups while searching
+            by_content = by_role[role]
+            total = sum(len(v) for v in by_content.values())
+            if not total and term:
+                continue
 
             label = role if role else "Other"
             color_hex = ROLE_COLORS.get(role, "#888888")
 
-            group = QTreeWidgetItem([f"  {label}", f"({len(builds)})"])
+            group = QTreeWidgetItem([f"  {label}", f"({total})"])
             group.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
             gf = QFont()
@@ -142,27 +148,50 @@ class BuildListPanel(QWidget):
 
             self._tree.addTopLevelItem(group)
             group.setExpanded(True)
-            group_row += 1
 
-            for build_id, name, eso_class in builds:
-                child = QTreeWidgetItem([f"  {name}", eso_class])
-                child.setData(0, Qt.ItemDataRole.UserRole, build_id)
-                if eso_class in CLASS_COLORS:
-                    child.setForeground(1, QColor(CLASS_COLORS[eso_class]))
-                cf = QFont()
-                cf.setPointSize(cf.pointSize() - 1)
-                child.setFont(1, cf)
-                group.addChild(child)
-                self._build_items[build_id] = child
+            # Use content sub-groups when builds span multiple content types,
+            # or when any build has a named content type
+            use_sub = len(by_content) > 1 or (
+                len(by_content) == 1 and list(by_content)[0] != ""
+            )
+
+            for content_key in _CONTENT_ORDER:
+                builds = by_content.get(content_key, [])
+                if not builds:
+                    continue
+
+                if use_sub:
+                    sub_label = content_key if content_key else "Other"
+                    sub_item = QTreeWidgetItem([f"    {sub_label}", f"({len(builds)})"])
+                    sub_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+                    csf = QFont()
+                    csf.setPointSize(csf.pointSize() - 1)
+                    sub_item.setFont(0, csf)
+                    sub_item.setFont(1, csf)
+                    sub_item.setForeground(0, QColor("#888888"))
+                    sub_item.setForeground(1, QColor("#555555"))
+                    group.addChild(sub_item)
+                    sub_item.setExpanded(True)
+                    parent = sub_item
+                else:
+                    parent = group
+
+                for build_id, name, eso_class in builds:
+                    child = QTreeWidgetItem([f"  {name}", eso_class])
+                    child.setData(0, Qt.ItemDataRole.UserRole, build_id)
+                    if eso_class in CLASS_COLORS:
+                        child.setForeground(1, QColor(CLASS_COLORS[eso_class]))
+                    cf = QFont()
+                    cf.setPointSize(cf.pointSize() - 1)
+                    child.setFont(1, cf)
+                    parent.addChild(child)
+                    self._build_items[build_id] = child
 
         self._tree.blockSignals(False)
 
         if restore_id and restore_id in self._build_items:
             self._tree.setCurrentItem(self._build_items[restore_id])
         else:
-            for _, n, r, c in self._all_builds:
-                # find first build item
-                pass
             for bid in (b[0] for b in self._all_builds):
                 if bid in self._build_items:
                     self._tree.setCurrentItem(self._build_items[bid])
