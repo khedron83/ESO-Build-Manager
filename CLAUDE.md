@@ -274,8 +274,8 @@ The editor (`build_editor.py` + `build_editor_dialog.py` and its child widgets) 
 form-heavy Qt with none of the visual language established in `build_sheet.py` (colored
 section labels, badge colors from `CLASS_COLORS`/`ROLE_COLORS`/`QUALITY_COLORS`, generous
 card-style spacing). Suggestions gathered from a ui-designer review, most impactful first.
-**Items 1-4 are done** (verified via offscreen-rendered screenshots); **5-11 are still open**
-— pick up at 5 next.
+**Items 1-5 are done** (verified via offscreen-rendered screenshots); **6-11 are still open**
+— pick up at 6 next.
 
 1. ✅ DONE — Wrapped the top metadata rows (name/role/content/patch/class/subclass/source) in
    a `QFrame` header card (`palette(alternateBase)` background, `palette(mid)` border, rounded
@@ -297,8 +297,9 @@ card-style spacing). Suggestions gathered from a ui-designer review, most impact
    `_blocking`-guarded handlers, so the accent still updates during `load_build()`) and
    explicitly from `load_build()` right after the combos are populated. Placeholder state
    (`_PH_CLASS`/`_PH_ROLE`) resolves to no color match → stylesheet cleared → default look.
-5. Color the gear table's Quality column per `QUALITY_COLORS`, matching how the sheet colors
-   set names by quality.
+5. ✅ DONE — Gear table's Quality column (`gear_table_widget.py`) now colors the selected
+   `QComboBox` text per `QUALITY_COLORS`, via a `_style_quality_combo(combo)` helper called on
+   `currentIndexChanged` and after programmatic `setCurrentIndex` in `load()`.
 6. Give CP slot handles a positional label (`cp_widget.py`) — currently always `""`, unlike
    the skill bar's "Slot 1"–"Ultimate" labels.
 7. Give `class_mastery_widget.py`'s empty-state text ("No class selected...") a card/banner

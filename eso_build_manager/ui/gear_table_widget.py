@@ -14,6 +14,7 @@ from eso_build_manager.constants import (
     GEAR_TRAITS,
     JEWELRY_ENCHANTS,
     JEWELRY_TRAITS,
+    QUALITY_COLORS,
     QUALITY_TIERS,
     WEAPON_ENCHANTS,
     WEAPON_TRAITS,
@@ -50,6 +51,11 @@ def _get_set_details() -> dict[str, dict]:
     if _SET_DETAILS is None:
         _SET_DETAILS = load_set_details()
     return _SET_DETAILS
+
+
+def _style_quality_combo(combo: QComboBox) -> None:
+    color = QUALITY_COLORS.get(combo.currentText(), "")
+    combo.setStyleSheet(f"QComboBox {{ color: {color}; }}" if color else "")
 
 
 def _build_tooltip(name: str) -> str:
@@ -157,6 +163,8 @@ class GearTableWidget(QWidget):
             quality_combo = QComboBox()
             quality_combo.addItems(QUALITY_TIERS)
             quality_combo.setCurrentIndex(QUALITY_TIERS.index("Epic"))
+            _style_quality_combo(quality_combo)
+            quality_combo.currentIndexChanged.connect(lambda _, c=quality_combo: _style_quality_combo(c))
             quality_combo.currentIndexChanged.connect(self._on_change)
             self._table.setCellWidget(row, _COL_QUALITY, quality_combo)
 
@@ -226,6 +234,7 @@ class GearTableWidget(QWidget):
             if quality_combo:
                 idx = quality_combo.findText(piece.quality)
                 quality_combo.setCurrentIndex(idx if idx >= 0 else QUALITY_TIERS.index("Epic"))
+                _style_quality_combo(quality_combo)
 
         self._blocking = False
 
