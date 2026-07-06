@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 from eso_build_manager.data_loader import load_set_details, skill_icon_url
 from eso_build_manager.icon_cache import fetch_icon
 
-_SHEET_ICON_SIZE = 48
+_SHEET_ICON_SIZE = 42
 
 import eso_build_manager.storage.database as db
 from eso_build_manager.constants import (
@@ -76,8 +76,8 @@ class _SkillCard(QFrame):
                 QLabel { border: none; background: transparent; }
             """)
 
-        self.setMinimumWidth(70)
-        self.setFixedHeight(100 if show_icon else 52)
+        self.setMinimumWidth(86)
+        self.setFixedHeight(100 if show_icon else 48)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         vbox = QVBoxLayout(self)
@@ -218,6 +218,35 @@ def _section_label(text: str) -> QLabel:
     return lbl
 
 
+def _section_label_left(text: str) -> QLabel:
+    """A section title meant to sit beside its content instead of on its own line above it."""
+    lbl = QLabel(text.upper())
+    lbl.setWordWrap(True)
+    lbl.setFixedWidth(96)
+    lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+    lbl.setStyleSheet("""
+        QLabel {
+            color: palette(windowText);
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            padding-left: 8px;
+            border-left: 2px solid palette(highlight);
+        }
+    """)
+    return lbl
+
+
+def _section_row(text: str, content: QWidget) -> QWidget:
+    w = QWidget()
+    row = QHBoxLayout(w)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(12)
+    row.addWidget(_section_label_left(text), 0, Qt.AlignmentFlag.AlignTop)
+    row.addWidget(content, 1)
+    return w
+
+
 class BuildSheetWidget(QWidget):
     edit_requested = Signal(int)
 
@@ -232,8 +261,8 @@ class BuildSheetWidget(QWidget):
 
         self._inner = QWidget()
         self._vbox = QVBoxLayout(self._inner)
-        self._vbox.setContentsMargins(28, 24, 28, 24)
-        self._vbox.setSpacing(28)
+        self._vbox.setContentsMargins(20, 16, 20, 16)
+        self._vbox.setSpacing(18)
         scroll.setWidget(self._inner)
 
         outer = QVBoxLayout(self)
@@ -423,11 +452,10 @@ class BuildSheetWidget(QWidget):
     def _skills_page_widget(self, skills: list) -> QWidget:
         by_slot = {(s.bar, s.slot): s.name for s in skills}
 
-        w = QWidget()
-        vbox = QVBoxLayout(w)
+        content = QWidget()
+        vbox = QVBoxLayout(content)
         vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(8)
-        vbox.addWidget(_section_label("Skills"))
+        vbox.setSpacing(6)
 
         bars = [
             (0, "Front Bar", "#4a9eff"),
@@ -451,7 +479,7 @@ class BuildSheetWidget(QWidget):
 
             vbox.addLayout(row)
 
-        return w
+        return _section_row("Skills", content)
 
     def _cp_section(self, slots: list[str]) -> QWidget:
         while len(slots) < 12:
@@ -467,11 +495,10 @@ class BuildSheetWidget(QWidget):
             r, g, b = int(hex_color[1:3],16), int(hex_color[3:5],16), int(hex_color[5:7],16)
             return f"rgba({r},{g},{b},{alpha})"
 
-        w = QWidget()
-        vbox = QVBoxLayout(w)
+        content = QWidget()
+        vbox = QVBoxLayout(content)
         vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(8)
-        vbox.addWidget(_section_label("Champion Points"))
+        vbox.setSpacing(6)
 
         for tree_name, color, offset in trees:
             row = QHBoxLayout(); row.setSpacing(6)
@@ -487,7 +514,7 @@ class BuildSheetWidget(QWidget):
                     f"background:{_rgba(color,0.05)};}} "
                     "QLabel{border:none;background:transparent;}"
                 )
-                card.setFixedHeight(52)
+                card.setFixedHeight(46)
                 card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                 cl = QVBoxLayout(card); cl.setContentsMargins(4,4,4,4); cl.setSpacing(1)
                 name_l = QLabel(name or "—")
@@ -503,27 +530,21 @@ class BuildSheetWidget(QWidget):
             rw = QWidget(); rw.setLayout(row)
             vbox.addWidget(rw)
 
-        return w
+        return _section_row("Champion Points", content)
 
     def _gear_page_widget(self, gear: list) -> QWidget:
         by_slot = {g.slot: g for g in gear}
 
         _ARMOR = ["Head", "Shoulder", "Chest", "Hands", "Waist", "Legs", "Feet"]
-        _JEWELRY = ["Neck", "Ring 1", "Ring 2"]
-        _WEAPONS = ["Main Hand", "Off Hand", "Backup Main", "Backup Off"]
+        _JEWELRY_AND_WEAPONS = [
+            "Neck", "Ring 1", "Ring 2",
+            "Main Hand", "Off Hand", "Backup Main", "Backup Off",
+        ]
 
-        w = QWidget()
-        vbox = QVBoxLayout(w)
+        content = QWidget()
+        vbox = QVBoxLayout(content)
         vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(12)
-        vbox.addWidget(_section_label("Gear"))
-
-        def _sub_lbl(text: str) -> QLabel:
-            lbl = QLabel(text)
-            lbl.setStyleSheet(
-                "color: palette(placeholderText); font-size: 9px; font-weight: bold; letter-spacing: 2px;"
-            )
-            return lbl
+        vbox.setSpacing(6)
 
         def _card_grid(slots: list, columns: int) -> QWidget:
             container = QWidget()
@@ -537,22 +558,18 @@ class BuildSheetWidget(QWidget):
                 grid.setColumnStretch(col, 1)
             return container
 
-        vbox.addWidget(_sub_lbl("ARMOR"))
-        vbox.addWidget(_card_grid(_ARMOR, 7))
-        vbox.addWidget(_sub_lbl("JEWELRY"))
-        vbox.addWidget(_card_grid(_JEWELRY, 3))
-        vbox.addWidget(_sub_lbl("WEAPONS"))
-        vbox.addWidget(_card_grid(_WEAPONS, 4))
+        vbox.addWidget(_card_grid(_ARMOR, 4))
+        vbox.addWidget(_card_grid(_JEWELRY_AND_WEAPONS, 4))
 
-        return w
+        return _section_row("Gear", content)
 
     def _loadout_page_widget(self, skills: list, gear: list) -> QWidget:
         w = QWidget()
-        vbox = QVBoxLayout(w)
-        vbox.setContentsMargins(0, 0, 0, 0)
-        vbox.setSpacing(20)
-        vbox.addWidget(self._skills_page_widget(skills))
-        vbox.addWidget(self._gear_page_widget(gear))
+        row = QHBoxLayout(w)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(24)
+        row.addWidget(self._skills_page_widget(skills), 2)
+        row.addWidget(self._gear_page_widget(gear), 3)
         return w
 
     def _loadout_section(self, skills: list, gear: list, page_names: list | None = None) -> QWidget:
