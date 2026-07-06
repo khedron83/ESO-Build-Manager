@@ -25,6 +25,11 @@ QUALITY_COLORS = {
     "Legendary": "#e5a635",
 }
 
+# Mythic is a set *type* (set_details.json), not a quality tier — mythic items
+# are always Legendary quality in-game but get their own distinct color so
+# they don't blend in with regular Legendary gear.
+MYTHIC_COLOR = "#c9762c"
+
 CLASS_SKILL_LINES: dict[str, list[str]] = {
     "Arcanist":    ["Apocrypha", "Herald of the Tome", "Soldier of Apocrypha"],
     "Dragonknight":["Ardent Flame", "Draconic Power", "Earthen Heart"],

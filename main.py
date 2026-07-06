@@ -650,7 +650,7 @@ class BuildsTab(QWidget):
             cp_slots=json.dumps(cp_slot_list),
             subclass_1=subclasses[0] if len(subclasses) > 0 else '',
             subclass_2=subclasses[1] if len(subclasses) > 1 else '',
-            class_masteries=', '.join(masteries) if masteries else '',
+            class_masteries=json.dumps(masteries),
         )
 
         skills: list[Skill] = []

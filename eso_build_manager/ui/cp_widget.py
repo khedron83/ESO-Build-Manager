@@ -24,6 +24,27 @@ def _load_cp_trees() -> None:
 _CP_MIME = "application/x-eso-cp-slot"
 _cp_drag_source: Optional["_CPSlot"] = None
 
+_TREE_ACCENTS = {"Craft": "#4dbd74", "Warfare": "#60a5fa", "Fitness": "#f87171"}  # matches build_sheet.py
+
+
+def _accent_group_box_style(accent: str) -> str:
+    return f"""
+        QGroupBox {{
+            border: 1px solid palette(mid);
+            border-radius: 6px;
+            margin-top: 10px;
+            padding-top: 6px;
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: 8px;
+            padding: 0 6px;
+            color: {accent};
+            font-weight: bold;
+            font-size: 11px;
+        }}
+    """
+
 
 class _CPEdit(QLineEdit):
     def dragEnterEvent(self, event):
@@ -153,10 +174,11 @@ class CPWidget(QWidget):
 
         for tree_name, stars in _CP_TREES:
             group = QGroupBox(tree_name)
+            group.setStyleSheet(_accent_group_box_style(_TREE_ACCENTS.get(tree_name, "#556677")))
             group_layout = QHBoxLayout(group)
             group_layout.setSpacing(6)
             for i in range(4):
-                slot = _CPSlot(str(i + 1), stars)
+                slot = _CPSlot("", stars)
                 slot.edit.textChanged.connect(self._on_change)
                 self._slots.append(slot)
                 group_layout.addWidget(slot)

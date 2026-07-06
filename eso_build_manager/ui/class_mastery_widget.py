@@ -47,7 +47,10 @@ class ClassMasteryWidget(QWidget):
         self._rebuild(class_name, selected)
 
     def load(self, class_name: str, data: str) -> None:
-        selected = json.loads(data) if data else []
+        try:
+            selected = json.loads(data) if data else []
+        except json.JSONDecodeError:
+            selected = []
         self._current_class = class_name
         self._rebuild(class_name, selected)
 

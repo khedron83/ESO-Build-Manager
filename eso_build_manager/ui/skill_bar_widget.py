@@ -33,6 +33,28 @@ def _make_completer(parent) -> QCompleter:
     return c
 
 
+_BAR_ACCENTS = ["#4a9eff", "#f97316"]  # Front Bar, Back Bar — matches build_sheet.py
+
+
+def _accent_group_box_style(accent: str) -> str:
+    return f"""
+        QGroupBox {{
+            border: 1px solid palette(mid);
+            border-radius: 6px;
+            margin-top: 10px;
+            padding-top: 6px;
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: 8px;
+            padding: 0 6px;
+            color: {accent};
+            font-weight: bold;
+            font-size: 11px;
+        }}
+    """
+
+
 class _SkillEdit(QLineEdit):
     """QLineEdit that accepts slot-drag drops from other skill slots."""
 
@@ -212,6 +234,7 @@ class SkillBarWidget(QWidget):
 
         for bar_idx, bar_name in enumerate(["Front Bar", "Back Bar"]):
             group = QGroupBox(bar_name)
+            group.setStyleSheet(_accent_group_box_style(_BAR_ACCENTS[bar_idx]))
             bar_layout = QHBoxLayout(group)
             bar_layout.setSpacing(6)
 

@@ -7,15 +7,24 @@ from PySide6.QtWidgets import (
     QMessageBox, QPushButton, QScrollArea, QSizePolicy, QTabWidget, QVBoxLayout, QWidget,
 )
 
-from eso_build_manager.data_loader import skill_icon_url
+from eso_build_manager.data_loader import load_set_details, skill_icon_url
 from eso_build_manager.icon_cache import fetch_icon
 
 _SHEET_ICON_SIZE = 48
 
 import eso_build_manager.storage.database as db
 from eso_build_manager.constants import (
-    CLASS_COLORS, ROLE_COLORS,
+    CLASS_COLORS, MYTHIC_COLOR, QUALITY_COLORS, ROLE_COLORS,
 )
+
+_SET_DETAILS: dict[str, dict] | None = None
+
+
+def _get_set_details() -> dict[str, dict]:
+    global _SET_DETAILS
+    if _SET_DETAILS is None:
+        _SET_DETAILS = load_set_details()
+    return _SET_DETAILS
 
 
 def _rgba(hex_color: str, alpha: float) -> str:
@@ -165,13 +174,8 @@ class _GearCard(QFrame):
             na.setStyleSheet("color: palette(placeholderText); font-size: 10px; font-style: italic;")
             vbox.addWidget(na)
         elif filled:
-            # Epic is the common case (most endgame gear) — only flag qualities
-            # worth calling out, so the sheet isn't a wall of one color.
-            _QUALITY_COLOR = {
-                "Legendary": "#e5a623", "Mythic": "#d4a017",
-                "Superior": "#0070dd", "Fine": "#1eff00", "Normal": "#c0c0c0",
-            }
-            q_color = _QUALITY_COLOR.get(piece.quality, "")
+            set_type = _get_set_details().get(piece.set_name, {}).get("type", "")
+            q_color = MYTHIC_COLOR if set_type == "Mythic" else QUALITY_COLORS.get(piece.quality, "")
             set_lbl = QLabel(piece.set_name)
             set_lbl.setWordWrap(True)
             set_lbl.setStyleSheet(
@@ -486,12 +490,6 @@ class BuildSheetWidget(QWidget):
                 card.setFixedHeight(52)
                 card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                 cl = QVBoxLayout(card); cl.setContentsMargins(4,4,4,4); cl.setSpacing(1)
-                slot_l = QLabel(str(i + 1))
-                slot_l.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-                slot_l.setStyleSheet(
-                    f"color:{color};font-size:8px;font-weight:bold;" if name else
-                    "color:palette(placeholderText);font-size:8px;"
-                )
                 name_l = QLabel(name or "—")
                 name_l.setWordWrap(True)
                 name_l.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -499,7 +497,7 @@ class BuildSheetWidget(QWidget):
                     "font-size:10px;font-weight:500;" if name else
                     "font-size:10px;color:palette(placeholderText);"
                 )
-                cl.addWidget(slot_l); cl.addWidget(name_l, 1)
+                cl.addWidget(name_l, 1)
                 row.addWidget(card)
             row.addStretch()
             rw = QWidget(); rw.setLayout(row)

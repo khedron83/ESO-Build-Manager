@@ -14,6 +14,7 @@ from eso_build_manager.constants import (
     GEAR_TRAITS,
     JEWELRY_ENCHANTS,
     JEWELRY_TRAITS,
+    QUALITY_TIERS,
     WEAPON_ENCHANTS,
     WEAPON_TRAITS,
     WEAPON_TYPES,
@@ -31,6 +32,7 @@ _COL_SET = 0
 _COL_WEIGHT = 1
 _COL_TRAIT = 2
 _COL_ENCHANT = 3
+_COL_QUALITY = 4
 
 _SET_NAMES: Optional[list[str]] = None
 _SET_DETAILS: Optional[dict[str, dict]] = None
@@ -98,13 +100,14 @@ class GearTableWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self._table = QTableWidget(len(GEAR_SLOTS), 4)
+        self._table = QTableWidget(len(GEAR_SLOTS), 5)
         self._table.setVerticalHeaderLabels(GEAR_SLOTS)
-        self._table.setHorizontalHeaderLabels(["Set", "Type / Weight", "Trait", "Enchant"])
+        self._table.setHorizontalHeaderLabels(["Set", "Type / Weight", "Trait", "Enchant", "Quality"])
         self._table.setItemDelegate(_SetDelegate(self._table))
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         hh.setSectionResizeMode(_COL_WEIGHT, QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(_COL_QUALITY, QHeaderView.ResizeMode.ResizeToContents)
         self._table.setAlternatingRowColors(True)
         self._table.verticalHeader().setDefaultSectionSize(28)
 
@@ -151,6 +154,12 @@ class GearTableWidget(QWidget):
             enchant_combo.currentTextChanged.connect(self._on_change)
             self._table.setCellWidget(row, _COL_ENCHANT, enchant_combo)
 
+            quality_combo = QComboBox()
+            quality_combo.addItems(QUALITY_TIERS)
+            quality_combo.setCurrentIndex(QUALITY_TIERS.index("Epic"))
+            quality_combo.currentIndexChanged.connect(self._on_change)
+            self._table.setCellWidget(row, _COL_QUALITY, quality_combo)
+
         self._table.itemChanged.connect(self._on_change)
         layout.addWidget(self._table)
         self._blocking = False
@@ -172,7 +181,7 @@ class GearTableWidget(QWidget):
             set_item.setFlags(ro_flags if na else rw_flags)
             if na:
                 set_item.setText("")
-        for col in (_COL_TRAIT, _COL_ENCHANT):
+        for col in (_COL_TRAIT, _COL_ENCHANT, _COL_QUALITY):
             combo: QComboBox = self._table.cellWidget(row, col)
             if combo:
                 combo.setEnabled(not na)
@@ -213,6 +222,11 @@ class GearTableWidget(QWidget):
                 else:
                     enchant_combo.setCurrentText(piece.enchant)
 
+            quality_combo: QComboBox = self._table.cellWidget(row, _COL_QUALITY)
+            if quality_combo:
+                idx = quality_combo.findText(piece.quality)
+                quality_combo.setCurrentIndex(idx if idx >= 0 else QUALITY_TIERS.index("Epic"))
+
         self._blocking = False
 
     def get_gear(self, build_id: int) -> list[GearPiece]:
@@ -222,6 +236,7 @@ class GearTableWidget(QWidget):
             weight_combo: QComboBox = self._table.cellWidget(row, _COL_WEIGHT)
             trait_combo: QComboBox = self._table.cellWidget(row, _COL_TRAIT)
             enchant_combo: QComboBox = self._table.cellWidget(row, _COL_ENCHANT)
+            quality_combo: QComboBox = self._table.cellWidget(row, _COL_QUALITY)
 
             pieces.append(GearPiece(
                 build_id=build_id,
@@ -230,5 +245,6 @@ class GearTableWidget(QWidget):
                 weight=weight_combo.currentText() if (weight_combo and (weight_combo.isEnabled() or slot in _OFFHAND_SLOTS)) else "",
                 trait=trait_combo.currentText() if trait_combo else "",
                 enchant=enchant_combo.currentText() if enchant_combo else "",
+                quality=quality_combo.currentText() if quality_combo else "Epic",
             ))
         return pieces

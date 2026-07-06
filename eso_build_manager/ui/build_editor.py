@@ -2,13 +2,14 @@ import json
 
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
+    QCheckBox, QComboBox, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit,
     QPlainTextEdit, QSpinBox, QSplitter, QTabWidget, QVBoxLayout, QWidget,
 )
 
 import eso_build_manager.storage.database as db
 from eso_build_manager.constants import (
-    CLASS_SKILL_LINES, CONTENT_TYPES, ESO_CLASSES, GAME_PATCHES, MUNDUS_STONES, ROLES,
+    CLASS_COLORS, CLASS_SKILL_LINES, CONTENT_TYPES, ESO_CLASSES, GAME_PATCHES,
+    MUNDUS_STONES, ROLE_COLORS, ROLES,
 )
 from eso_build_manager.models.build import Build
 from eso_build_manager.ui.class_mastery_widget import ClassMasteryWidget
@@ -20,6 +21,17 @@ def _line_to_class(line: str) -> str:
         if line in lines:
             return cls
     return ""
+
+
+def _accent_combo_style(color: str) -> str:
+    return f"""
+        QComboBox {{
+            border: 1px solid palette(mid);
+            border-left: 3px solid {color};
+            border-radius: 4px;
+            padding-left: 4px;
+        }}
+    """
 
 
 _PH_CLASS = "— Class —"
@@ -44,14 +56,28 @@ class BuildEditorPanel(QWidget):
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(8, 8, 8, 8)
-        outer.setSpacing(6)
+        outer.setSpacing(10)
+
+        header_card = QFrame()
+        header_card.setObjectName("headerCard")
+        header_card.setStyleSheet("""
+            QFrame#headerCard {
+                background-color: palette(alternateBase);
+                border: 1px solid palette(mid);
+                border-radius: 8px;
+            }
+        """)
+        header_layout = QVBoxLayout(header_card)
+        header_layout.setContentsMargins(14, 12, 14, 12)
+        header_layout.setSpacing(10)
 
         # ── Row 1: name | role | content ─────────────────────────────────
         row1 = QHBoxLayout()
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("Build name")
         font = self._name_edit.font()
-        font.setPointSize(font.pointSize() + 2)
+        font.setPointSize(font.pointSize() + 10)
+        font.setBold(True)
         self._name_edit.setFont(font)
 
         self._role_combo = QComboBox()
@@ -107,9 +133,15 @@ class BuildEditorPanel(QWidget):
         row3.addWidget(QLabel("Source:"))
         row3.addWidget(self._source_edit, stretch=1)
 
-        outer.addLayout(row1)
-        outer.addLayout(row2)
-        outer.addLayout(row3)
+        header_layout.addLayout(row1)
+        header_layout.addLayout(row2)
+        header_layout.addLayout(row3)
+        outer.addWidget(header_card)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet("QFrame { color: palette(windowText); margin: 0; }")
+        outer.addWidget(separator)
 
         # ── Tabs ──────────────────────────────────────────────────────────
         self._tabs = QTabWidget()
@@ -140,10 +172,12 @@ class BuildEditorPanel(QWidget):
         # ── Signal wiring ─────────────────────────────────────────────────
         self._name_edit.textChanged.connect(self._on_name_changed)
         self._class_combo.currentIndexChanged.connect(self._on_primary_class_changed)
+        self._class_combo.currentIndexChanged.connect(self._update_class_accent)
         self._sub_check.toggled.connect(self._on_subclass_toggled)
         self._sub1_combo.currentIndexChanged.connect(self._on_sub1_changed)
         self._sub2_combo.currentIndexChanged.connect(self._schedule_save)
         self._role_combo.currentIndexChanged.connect(self._schedule_save)
+        self._role_combo.currentIndexChanged.connect(self._update_role_accent)
         self._content_combo.currentIndexChanged.connect(self._schedule_save)
         self._patch_combo.currentIndexChanged.connect(self._schedule_save)
         self._source_edit.textChanged.connect(self._schedule_save)
@@ -214,6 +248,8 @@ class BuildEditorPanel(QWidget):
         self._load_combo(self._content_combo, build.content, _PH_CONTENT)
         self._patch_combo.setCurrentText(build.game_patch or "U50")
         self._source_edit.setText(build.source)
+        self._update_class_accent()
+        self._update_role_accent()
 
         has_sub = bool(build.subclass_1 or build.subclass_2)
         self._sub_check.setChecked(not has_sub)
@@ -346,6 +382,14 @@ class BuildEditorPanel(QWidget):
         db.update_build(build)
         db.save_skills(self._current_id, self._loadout_pages.get_skills(self._current_id))
         db.save_gear(self._current_id, self._loadout_pages.get_gear(self._current_id))
+
+    def _update_class_accent(self) -> None:
+        color = CLASS_COLORS.get(self._combo_text(self._class_combo))
+        self._class_combo.setStyleSheet(_accent_combo_style(color) if color else "")
+
+    def _update_role_accent(self) -> None:
+        color = ROLE_COLORS.get(self._combo_text(self._role_combo))
+        self._role_combo.setStyleSheet(_accent_combo_style(color) if color else "")
 
     @staticmethod
     def _load_combo(combo: QComboBox, value: str, placeholder: str) -> None:

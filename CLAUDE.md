@@ -269,6 +269,51 @@ Two-way WebDAV sync to `ESO-Builds/` directory on Nextcloud.
 
 ## TODOs
 
+### Build editor visual polish (vs. the read-only sheet) — IN PROGRESS, items 5-11 remain
+The editor (`build_editor.py` + `build_editor_dialog.py` and its child widgets) was plain,
+form-heavy Qt with none of the visual language established in `build_sheet.py` (colored
+section labels, badge colors from `CLASS_COLORS`/`ROLE_COLORS`/`QUALITY_COLORS`, generous
+card-style spacing). Suggestions gathered from a ui-designer review, most impactful first.
+**Items 1-4 are done** (verified via offscreen-rendered screenshots); **5-11 are still open**
+— pick up at 5 next.
+
+1. ✅ DONE — Wrapped the top metadata rows (name/role/content/patch/class/subclass/source) in
+   a `QFrame` header card (`palette(alternateBase)` background, `palette(mid)` border, rounded
+   corners, 14/12px padding) with a closing `HLine` before the tabs, matching
+   `build_sheet.py::_build_header`. See `build_editor.py` `__init__` (the `header_card`/
+   `header_layout` block right after `outer = QVBoxLayout(self)`).
+2. ✅ DONE — Name field bumped to hero-title weight: `+10pt` and `setBold(True)` on
+   `self._name_edit`'s font in `build_editor.py` (was `+2pt`, not bold).
+3. ✅ DONE — `skill_bar_widget.py` ("Front Bar"/"Back Bar") and `cp_widget.py`
+   ("Craft"/"Warfare"/"Fitness") `QGroupBox` titles are now colored via a per-file
+   `_accent_group_box_style(accent)` helper (`QGroupBox::title` selector only, so the
+   accent color doesn't cascade into child widgets) using the same hex values
+   `build_sheet.py` uses for these labels (bars: `#4a9eff`/`#f97316`; CP trees:
+   `#4dbd74`/`#60a5fa`/`#f87171`).
+4. ✅ DONE — Class/Role combos in `build_editor.py` now get a 3px colored left border via
+   `_accent_combo_style(color)`, driven by `CLASS_COLORS`/`ROLE_COLORS.get(...)`. Wired through
+   `_update_class_accent()`/`_update_role_accent()`, called on `currentIndexChanged` (in
+   addition to the existing save/rebuild handlers — these two are unconditional, unlike the
+   `_blocking`-guarded handlers, so the accent still updates during `load_build()`) and
+   explicitly from `load_build()` right after the combos are populated. Placeholder state
+   (`_PH_CLASS`/`_PH_ROLE`) resolves to no color match → stylesheet cleared → default look.
+5. Color the gear table's Quality column per `QUALITY_COLORS`, matching how the sheet colors
+   set names by quality.
+6. Give CP slot handles a positional label (`cp_widget.py`) — currently always `""`, unlike
+   the skill bar's "Slot 1"–"Ultimate" labels.
+7. Give `class_mastery_widget.py`'s empty-state text ("No class selected...") a card/banner
+   treatment — it's often the entire tab content and currently just one gray paragraph.
+8. Double-check empty skill-slot placeholder contrast (`1px dashed palette(mid)` in
+   `skill_bar_widget.py`) in KDE dark theme; consider `palette(midlight)` or a faint "+" affordance.
+9. Move loadout pages' "+ Add / − Remove" buttons into `QTabWidget.setCornerWidget(...)`
+   instead of a floating row above the tabs (`loadout_pages_widget.py:52-64`).
+10. The modeless editor dialog has a static "Edit Build" title regardless of which build is
+    open, and autosave is completely silent. Add a live title (`"Edit — {name}"`) and a small
+    transient "Saved" indicator; also check whether reopening a build already being edited
+    creates a second competing window instead of raising the existing one.
+11. Style splitter handles (Loadout/CP in `build_editor.py`, skill bar/gear table in
+    `loadout_pages_widget.py`) — default 1px handles give no visible resize affordance.
+
 ### Android app sync sees 0 builds despite desktop having builds on the server
 `eso-build-manager-expo` can't use PROPFIND (Android platform limitation, see that repo's
 CLAUDE.md), so it tracks synced files via a `_index.json` manifest instead of listing the
