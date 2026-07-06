@@ -8,11 +8,13 @@ from PySide6.QtWidgets import (
 )
 
 from eso_build_manager.constants import (
+    ARMOR_ENCHANTS,
     ARMOR_WEIGHTS,
-    ENCHANT_SUGGESTIONS,
     GEAR_SLOTS,
     GEAR_TRAITS,
+    JEWELRY_ENCHANTS,
     JEWELRY_TRAITS,
+    WEAPON_ENCHANTS,
     WEAPON_TRAITS,
     WEAPON_TYPES,
 )
@@ -58,14 +60,12 @@ def _build_tooltip(name: str) -> str:
 
 
 class _SetDelegate(QStyledItemDelegate):
-    """Autocomplete for the Set and Enchant columns."""
+    """Autocomplete for the Set column."""
 
     def createEditor(self, parent, option, index):
-        col = index.column()
-        if col in (_COL_SET, _COL_ENCHANT):
+        if index.column() == _COL_SET:
             edit = QLineEdit(parent)
-            names = _get_set_names() if col == _COL_SET else ENCHANT_SUGGESTIONS
-            c = QCompleter(names, edit)
+            c = QCompleter(_get_set_names(), edit)
             c.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
             c.setFilterMode(Qt.MatchFlag.MatchContains)
             c.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
@@ -74,19 +74,16 @@ class _SetDelegate(QStyledItemDelegate):
         return super().createEditor(parent, option, index)
 
     def setEditorData(self, editor, index):
-        if index.column() in (_COL_SET, _COL_ENCHANT) and isinstance(editor, QLineEdit):
+        if index.column() == _COL_SET and isinstance(editor, QLineEdit):
             editor.setText(index.data() or "")
         else:
             super().setEditorData(editor, index)
 
     def setModelData(self, editor, model, index):
-        col = index.column()
-        if col == _COL_SET and isinstance(editor, QLineEdit):
+        if index.column() == _COL_SET and isinstance(editor, QLineEdit):
             name = editor.text()
             model.setData(index, name)
             model.setData(index, _build_tooltip(name), Qt.ItemDataRole.ToolTipRole)
-        elif col == _COL_ENCHANT and isinstance(editor, QLineEdit):
-            model.setData(index, editor.text())
         else:
             super().setModelData(editor, model, index)
 
@@ -113,7 +110,6 @@ class GearTableWidget(QWidget):
 
         for row, slot in enumerate(GEAR_SLOTS):
             self._table.setItem(row, _COL_SET, QTableWidgetItem(""))
-            self._table.setItem(row, _COL_ENCHANT, QTableWidgetItem(""))
 
             weight_combo = QComboBox()
             if slot in _OFFHAND_SLOTS:
@@ -139,6 +135,22 @@ class GearTableWidget(QWidget):
             trait_combo.currentIndexChanged.connect(self._on_change)
             self._table.setCellWidget(row, _COL_TRAIT, trait_combo)
 
+            enchant_combo = QComboBox()
+            enchant_combo.setEditable(True)
+            if slot in _JEWELRY_SLOTS:
+                enchant_combo.addItems([""] + JEWELRY_ENCHANTS)
+            elif slot in _WEAPON_SLOTS:
+                enchant_combo.addItems([""] + WEAPON_ENCHANTS)
+            else:
+                enchant_combo.addItems([""] + ARMOR_ENCHANTS)
+            c = QCompleter(enchant_combo.model(), enchant_combo)
+            c.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            c.setFilterMode(Qt.MatchFlag.MatchContains)
+            c.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+            enchant_combo.setCompleter(c)
+            enchant_combo.currentTextChanged.connect(self._on_change)
+            self._table.setCellWidget(row, _COL_ENCHANT, enchant_combo)
+
         self._table.itemChanged.connect(self._on_change)
         layout.addWidget(self._table)
         self._blocking = False
@@ -155,17 +167,17 @@ class GearTableWidget(QWidget):
     def _set_row_na(self, row: int, na: bool) -> None:
         ro_flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
         rw_flags = ro_flags | Qt.ItemFlag.ItemIsEditable
-        for col in (_COL_SET, _COL_ENCHANT):
-            item = self._table.item(row, col)
-            if item:
-                item.setFlags(ro_flags if na else rw_flags)
-                if na:
-                    item.setText("")
-        trait_combo: QComboBox = self._table.cellWidget(row, _COL_TRAIT)
-        if trait_combo:
-            trait_combo.setEnabled(not na)
+        set_item = self._table.item(row, _COL_SET)
+        if set_item:
+            set_item.setFlags(ro_flags if na else rw_flags)
             if na:
-                trait_combo.setCurrentIndex(0)
+                set_item.setText("")
+        for col in (_COL_TRAIT, _COL_ENCHANT):
+            combo: QComboBox = self._table.cellWidget(row, col)
+            if combo:
+                combo.setEnabled(not na)
+                if na:
+                    combo.setCurrentIndex(0)
 
     def load(self, gear: list[GearPiece]) -> None:
         self._blocking = True
@@ -182,7 +194,7 @@ class GearTableWidget(QWidget):
                 item.setToolTip(_build_tooltip(piece.set_name))
 
             weight_combo: QComboBox = self._table.cellWidget(row, _COL_WEIGHT)
-            if weight_combo and (weight_combo.isEnabled() or slot in _OFFHAND_SLOTS):
+            if weight_combo and slot not in _NO_WEIGHT_SLOTS:
                 idx = weight_combo.findText(piece.weight)
                 weight_combo.setCurrentIndex(idx if idx >= 0 else 0)
             if slot in _OFFHAND_SLOTS:
@@ -193,9 +205,13 @@ class GearTableWidget(QWidget):
                 idx = trait_combo.findText(piece.trait)
                 trait_combo.setCurrentIndex(idx if idx >= 0 else 0)
 
-            enchant_item = self._table.item(row, _COL_ENCHANT)
-            if enchant_item:
-                enchant_item.setText(piece.enchant)
+            enchant_combo: QComboBox = self._table.cellWidget(row, _COL_ENCHANT)
+            if enchant_combo:
+                idx = enchant_combo.findText(piece.enchant)
+                if idx >= 0:
+                    enchant_combo.setCurrentIndex(idx)
+                else:
+                    enchant_combo.setCurrentText(piece.enchant)
 
         self._blocking = False
 
@@ -203,9 +219,9 @@ class GearTableWidget(QWidget):
         pieces = []
         for row, slot in enumerate(GEAR_SLOTS):
             set_item = self._table.item(row, _COL_SET)
-            enchant_item = self._table.item(row, _COL_ENCHANT)
             weight_combo: QComboBox = self._table.cellWidget(row, _COL_WEIGHT)
             trait_combo: QComboBox = self._table.cellWidget(row, _COL_TRAIT)
+            enchant_combo: QComboBox = self._table.cellWidget(row, _COL_ENCHANT)
 
             pieces.append(GearPiece(
                 build_id=build_id,
@@ -213,6 +229,6 @@ class GearTableWidget(QWidget):
                 set_name=set_item.text() if set_item else "",
                 weight=weight_combo.currentText() if (weight_combo and (weight_combo.isEnabled() or slot in _OFFHAND_SLOTS)) else "",
                 trait=trait_combo.currentText() if trait_combo else "",
-                enchant=enchant_item.text() if enchant_item else "",
+                enchant=enchant_combo.currentText() if enchant_combo else "",
             ))
         return pieces

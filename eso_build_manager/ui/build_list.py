@@ -1,8 +1,8 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QColor, QFont
 from PySide6.QtWidgets import (
-    QFileDialog, QHeaderView, QLineEdit, QMenu, QMessageBox,
-    QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QFileDialog, QHBoxLayout, QHeaderView, QLineEdit, QMenu, QMessageBox,
+    QPushButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
 import eso_build_manager.storage.database as db
@@ -16,7 +16,8 @@ _ROLE_ALIAS = {"MagDPS": "DPS", "StamDPS": "DPS"}
 
 class BuildListPanel(QWidget):
     build_selected = Signal(int)
-    build_deleted = Signal()
+    build_deleted  = Signal()
+    edit_requested = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -26,23 +27,14 @@ class BuildListPanel(QWidget):
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(6)
 
-        self._actions_btn = QToolButton()
-        self._actions_btn.setText("Build Actions")
-        self._actions_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self._actions_btn.setSizePolicy(
-            self._actions_btn.sizePolicy().horizontalPolicy(),
-            self._actions_btn.sizePolicy().verticalPolicy(),
-        )
-        self._actions_btn.setStyleSheet("QToolButton { padding: 4px 8px; }"
-                                        "QToolButton::menu-indicator { width: 12px; }")
-        actions_menu = QMenu(self._actions_btn)
-        actions_menu.addAction(QAction("Add Build", self, triggered=self._add))
-        actions_menu.addAction(QAction("Duplicate Build", self, triggered=self._duplicate))
-        actions_menu.addAction(QAction("Delete Build", self, triggered=self._delete))
-        actions_menu.addSeparator()
-        actions_menu.addAction(QAction("Import JSON…", self, triggered=self._import))
-        self._actions_btn.setMenu(actions_menu)
-        layout.addWidget(self._actions_btn)
+        top_row = QHBoxLayout()
+        top_row.setSpacing(4)
+        add_btn = QPushButton("＋  New Build")
+        add_btn.setFixedHeight(28)
+        add_btn.setStyleSheet("font-size: 12px;")
+        add_btn.clicked.connect(self._add)
+        top_row.addWidget(add_btn)
+        layout.addLayout(top_row)
 
         self._search = QLineEdit()
         self._search.setPlaceholderText("Search builds…")
@@ -72,13 +64,20 @@ class BuildListPanel(QWidget):
             }
         """)
         self._tree.currentItemChanged.connect(self._on_item_changed)
+        self._tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self._tree)
 
         self._all_builds: list[tuple[int, str, str, str, str]] = []
         self._build_items: dict[int, QTreeWidgetItem] = {}
+        self._class_filter: str | None = None
         self.refresh()
 
     # ── Public API ────────────────────────────────────────────────────────
+
+    def set_class_filter(self, class_name: str | None) -> None:
+        self._class_filter = class_name
+        self.refresh()
 
     def refresh(self, select_id: int | None = None) -> None:
         self._all_builds = db.list_builds_meta()
@@ -113,6 +112,8 @@ class BuildListPanel(QWidget):
         # by_role → by_content → [(id, name, eso_class)]
         by_role: dict[str, dict[str, list]] = {r: {} for r in _ROLE_ORDER}
         for build_id, name, role, eso_class, content in self._all_builds:
+            if self._class_filter and (eso_class or '') != self._class_filter:
+                continue
             if term and term not in name.lower() and term not in (eso_class or "").lower():
                 continue
             role_key = _ROLE_ALIAS.get(role, role)
@@ -198,6 +199,21 @@ class BuildListPanel(QWidget):
                     break
 
     # ── Slot handlers ─────────────────────────────────────────────────────
+
+    def _show_context_menu(self, pos) -> None:
+        item = self._tree.itemAt(pos)
+        build_id = item.data(0, Qt.ItemDataRole.UserRole) if item else None
+
+        menu = QMenu(self._tree)
+        if build_id is not None:
+            menu.addAction("✎  Edit",      lambda: self.edit_requested.emit(build_id))
+            menu.addAction("⧉  Duplicate", self._duplicate)
+            menu.addSeparator()
+            menu.addAction("✕  Delete",    self._delete)
+            menu.addSeparator()
+        menu.addAction("＋  New Build",  self._add)
+        menu.addAction("⬆  Import JSON…", self._import)
+        menu.exec(self._tree.viewport().mapToGlobal(pos))
 
     def _on_search(self, text: str) -> None:
         self._rebuild_tree(text)

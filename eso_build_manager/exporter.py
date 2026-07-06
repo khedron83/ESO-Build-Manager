@@ -32,9 +32,10 @@ def export_build_dict(build_id: int) -> dict:
         "champion_points": build.champion_points,
         "cp_slots": json.loads(build.cp_slots) if build.cp_slots else [],
         "class_masteries": build.class_masteries,
+        "gear_pages": json.loads(build.gear_pages) if build.gear_pages else ["Main"],
         "notes": build.notes,
         "skills": [
-            {"bar": s.bar, "slot": s.slot, "name": s.name}
+            {"bar": s.bar, "slot": s.slot, "name": s.name, "page": s.page}
             for s in skills if s.name.strip()
         ],
         "gear": [
@@ -45,6 +46,7 @@ def export_build_dict(build_id: int) -> dict:
                 "trait": g.trait,
                 "enchant": g.enchant,
                 "quality": g.quality,
+                "page": g.page,
             }
             for g in gear
         ],
@@ -70,6 +72,7 @@ def import_build_dict(data: dict) -> int:
         champion_points=data.get("champion_points", ""),
         cp_slots=json.dumps(data.get("cp_slots", [])),
         class_masteries=data.get("class_masteries", ""),
+        gear_pages=json.dumps(data.get("gear_pages", ["Main"])),
         notes=data.get("notes", ""),
     )
     build_id = db.create_build(build)
@@ -78,7 +81,7 @@ def import_build_dict(data: dict) -> int:
     from eso_build_manager.models.gear import GearPiece
 
     skills = [
-        Skill(build_id=build_id, bar=s["bar"], slot=s["slot"], name=s["name"])
+        Skill(build_id=build_id, bar=s["bar"], slot=s["slot"], name=s["name"], page=s.get("page", 0))
         for s in data.get("skills", [])
     ]
     db.save_skills(build_id, skills)
@@ -92,6 +95,7 @@ def import_build_dict(data: dict) -> int:
             trait=g.get("trait", ""),
             enchant=g.get("enchant", ""),
             quality=g.get("quality", "Epic"),
+            page=g.get("page", 0),
         )
         for g in data.get("gear", [])
     ]
@@ -121,15 +125,6 @@ def export_build_text(build_id: int) -> str:
     lines.append("=" * 52)
     lines.append("")
 
-    # ── Skills ────────────────────────────────────────────────────────────
-    by_slot = {(s.bar, s.slot): s.name for s in skills}
-    lines.append("SKILLS")
-    for bar_idx, bar_label in [(0, "Front Bar"), (1, "Back Bar ")]:
-        actives = "  ·  ".join(by_slot.get((bar_idx, i), "—") for i in range(5))
-        ult = by_slot.get((bar_idx, 5), "—")
-        lines.append(f"  {bar_label}:  {actives}  |  Ult: {ult}")
-    lines.append("")
-
     # ── Champion Points ───────────────────────────────────────────────────
     cp_slots: list[str] = json.loads(build.cp_slots) if build.cp_slots else []
     if any(s.strip() for s in cp_slots):
@@ -141,23 +136,43 @@ def export_build_text(build_id: int) -> str:
             lines.append(f"  {label}:  {stars}")
         lines.append("")
 
-    # ── Gear ─────────────────────────────────────────────────────────────
-    lines.append("GEAR")
-    gear_by_slot = {g.slot: g for g in gear}
+    # ── Skills + Gear, per loadout page ────────────────────────────────────
     from eso_build_manager.constants import GEAR_SLOTS
-    for slot in GEAR_SLOTS:
-        piece = gear_by_slot.get(slot)
-        if piece and piece.weight == "N/A":
-            lines.append(f"  {slot:<14}  N/A")
-        elif piece and piece.set_name.strip():
-            parts = [piece.set_name]
-            for v in [piece.weight, piece.trait, piece.enchant, piece.quality]:
-                if v and v not in ("", "—"):
-                    parts.append(v)
-            lines.append(f"  {slot:<14}  " + "  ·  ".join(parts))
-        else:
-            lines.append(f"  {slot:<14}  —")
-    lines.append("")
+    gear_pages: list[str] = json.loads(build.gear_pages) if build.gear_pages else ["Main"]
+
+    skills_by_page: dict[int, dict] = {}
+    for s in skills:
+        skills_by_page.setdefault(s.page, {})[(s.bar, s.slot)] = s.name
+    gear_by_page: dict[int, dict] = {}
+    for g in gear:
+        gear_by_page.setdefault(g.page, {})[g.slot] = g
+
+    for page_idx, page_name in enumerate(gear_pages):
+        suffix = "" if len(gear_pages) == 1 else f" — {page_name}"
+
+        lines.append(f"SKILLS{suffix}")
+        by_slot = skills_by_page.get(page_idx, {})
+        for bar_idx, bar_label in [(0, "Front Bar"), (1, "Back Bar ")]:
+            actives = "  ·  ".join(by_slot.get((bar_idx, i), "—") for i in range(5))
+            ult = by_slot.get((bar_idx, 5), "—")
+            lines.append(f"  {bar_label}:  {actives}  |  Ult: {ult}")
+        lines.append("")
+
+        lines.append(f"GEAR{suffix}")
+        gear_by_slot = gear_by_page.get(page_idx, {})
+        for slot in GEAR_SLOTS:
+            piece = gear_by_slot.get(slot)
+            if piece and piece.weight == "N/A":
+                lines.append(f"  {slot:<14}  N/A")
+            elif piece and piece.set_name.strip():
+                parts = [piece.set_name]
+                for v in [piece.weight, piece.trait, piece.enchant, piece.quality]:
+                    if v and v not in ("", "—"):
+                        parts.append(v)
+                lines.append(f"  {slot:<14}  " + "  ·  ".join(parts))
+            else:
+                lines.append(f"  {slot:<14}  —")
+        lines.append("")
 
     # ── Stats & Buffs ─────────────────────────────────────────────────────
     lines.append("STATS & BUFFS")

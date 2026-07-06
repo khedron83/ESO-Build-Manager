@@ -81,19 +81,22 @@ WEAPON_TYPES = sorted([
     "Restoration Staff", "Shield", "Sword",
 ])
 
-ENCHANT_SUGGESTIONS = sorted([
-    # weapon glyphs
+WEAPON_ENCHANTS = sorted([
     "Absorb Health", "Absorb Magicka", "Absorb Stamina",
-    "Berserker", "Crusher", "Weakening",
-    "Disease Damage", "Flame Damage", "Frost Damage", "Shock Damage", "Poison Damage",
-    "Oblivion Damage", "Life Drain", "Prismatic Onslaught",
-    # armor glyphs
-    "Max Health", "Max Magicka", "Max Stamina", "Prismatic Defense",
-    "Health Recovery", "Magicka Recovery", "Stamina Recovery",
+    "Weapon Damage", "Weakening", "Crusher",
+    "Fiery Weapon", "Frost Weapon", "Shock Weapon", "Poisoned Weapon", "Disease Weapon",
+    "Decrease Health", "Hardening", "Prismatic Onslaught",
+])
+ARMOR_ENCHANTS = sorted([
+    "Maximum Health", "Maximum Magicka", "Maximum Stamina", "Multi-Effect",
+])
+JEWELRY_ENCHANTS = sorted([
+    "Weapon Damage", "Spell Damage",
+    "Health Recovery", "Magicka Recovery", "Stamina Recovery", "Prismatic Recovery",
     "Physical Resistance", "Spell Resistance",
-    "Reduce Block Cost", "Reduce Feat Cost", "Reduce Roll Dodge Cost", "Reduce Sprint Cost",
-    # jewelry glyphs
-    "Weapon Damage", "Spell Damage", "Shielding", "Bracing",
+    "Flame Resist", "Frost Resist", "Shock Resist", "Poison Resist", "Disease Resist",
+    "Reduce Spell Cost", "Reduce Feat Cost", "Reduce Skill Cost",
+    "Shielding", "Bashing", "Potion Boost", "Potion Resist",
 ])
 
 QUALITY_TIERS = ["Normal", "Fine", "Superior", "Epic", "Legendary"]

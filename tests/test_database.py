@@ -3,8 +3,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import json
+
 import eso_build_manager.storage.database as dbmod
 from eso_build_manager.models.build import Build
+from eso_build_manager.models.gear import GearPiece
 from eso_build_manager.models.skill import Skill
 
 
@@ -85,6 +88,39 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(copy.name, "Original (Copy)")
         copy_skills = dbmod.get_skills(new_id)
         self.assertEqual(copy_skills[0].name, "Cloak")
+
+    def test_gear_pages_round_trip(self):
+        build_id = dbmod.create_build(Build(
+            name="Tank", role="Tank", gear_pages=json.dumps(["Main", "Trash", "Boss"]),
+        ))
+        gear = [
+            GearPiece(build_id=build_id, slot="Head", set_name="Powerful Assault", page=0),
+            GearPiece(build_id=build_id, slot="Head", set_name="Tremorscale", page=1),
+            GearPiece(build_id=build_id, slot="Head", set_name="Nazaray", page=2),
+        ]
+        dbmod.save_gear(build_id, gear)
+
+        result = dbmod.get_gear(build_id)
+        by_page = {g.page: g.set_name for g in result if g.slot == "Head"}
+        self.assertEqual(by_page, {0: "Powerful Assault", 1: "Tremorscale", 2: "Nazaray"})
+
+        reloaded = dbmod.get_build(build_id)
+        self.assertEqual(json.loads(reloaded.gear_pages), ["Main", "Trash", "Boss"])
+
+    def test_skill_pages_round_trip(self):
+        build_id = dbmod.create_build(Build(
+            name="Tank", role="Tank", gear_pages=json.dumps(["Main", "Trash", "Boss"]),
+        ))
+        skills = [
+            Skill(build_id=build_id, bar=0, slot=0, name="Pierce Armor", page=0),
+            Skill(build_id=build_id, bar=0, slot=0, name="Inner Fire", page=1),
+            Skill(build_id=build_id, bar=0, slot=0, name="Ice Fortress", page=2),
+        ]
+        dbmod.save_skills(build_id, skills)
+
+        result = dbmod.get_skills(build_id)
+        by_page = {s.page: s.name for s in result}
+        self.assertEqual(by_page, {0: "Pierce Armor", 1: "Inner Fire", 2: "Ice Fortress"})
 
     def test_delete_cascades_skills(self):
         build_id = dbmod.create_build(Build(name="Cascade Test"))

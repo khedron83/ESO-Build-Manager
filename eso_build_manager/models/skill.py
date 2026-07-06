@@ -8,4 +8,5 @@ class Skill:
     slot: int = 0  # 0-4 = active, 5 = ultimate
     name: str = ""
     notes: str = ""
+    page: int = 0
     id: int | None = None

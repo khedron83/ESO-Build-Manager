@@ -22,6 +22,7 @@ class Build:
     champion_points: str = ""
     cp_slots: str = ""
     class_masteries: str = ""
+    gear_pages: str = '["Main"]'
     notes: str = ""
     created_at: str = ""
     updated_at: str = ""

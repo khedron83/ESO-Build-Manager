@@ -10,4 +10,5 @@ class GearPiece:
     trait: str = ""
     enchant: str = ""
     quality: str = "Epic"
+    page: int = 0
     id: int | None = None

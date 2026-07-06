@@ -42,6 +42,7 @@ def init_db() -> None:
                 champion_points TEXT DEFAULT '',
                 cp_slots TEXT DEFAULT '',
                 class_masteries TEXT DEFAULT '',
+                gear_pages TEXT DEFAULT '["Main"]',
                 notes TEXT DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -53,7 +54,8 @@ def init_db() -> None:
                 bar INTEGER NOT NULL,
                 slot INTEGER NOT NULL,
                 name TEXT DEFAULT '',
-                notes TEXT DEFAULT ''
+                notes TEXT DEFAULT '',
+                page INTEGER DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS gear (
@@ -64,7 +66,8 @@ def init_db() -> None:
                 weight TEXT DEFAULT '',
                 trait TEXT DEFAULT '',
                 enchant TEXT DEFAULT '',
-                quality TEXT DEFAULT 'Epic'
+                quality TEXT DEFAULT 'Epic',
+                page INTEGER DEFAULT 0
             );
         """)
         _migrations = [
@@ -76,10 +79,31 @@ def init_db() -> None:
             ("source",        "TEXT DEFAULT ''"),
             ("character_stats", "TEXT DEFAULT '{}'"),
             ("mundus_stone",  "TEXT DEFAULT ''"),
+            ("gear_pages",    "TEXT DEFAULT '[\"Main\"]'"),
         ]
         for col, definition in _migrations:
             try:
                 conn.execute(f"ALTER TABLE builds ADD COLUMN {col} {definition}")
+            except sqlite3.OperationalError:
+                pass  # column already exists
+
+        _gear_migrations = [
+            ("weight", "TEXT DEFAULT ''"),
+            ("trait",  "TEXT DEFAULT ''"),
+            ("page",   "INTEGER DEFAULT 0"),
+        ]
+        for col, definition in _gear_migrations:
+            try:
+                conn.execute(f"ALTER TABLE gear ADD COLUMN {col} {definition}")
+            except sqlite3.OperationalError:
+                pass  # column already exists
+
+        _skill_migrations = [
+            ("page", "INTEGER DEFAULT 0"),
+        ]
+        for col, definition in _skill_migrations:
+            try:
+                conn.execute(f"ALTER TABLE skills ADD COLUMN {col} {definition}")
             except sqlite3.OperationalError:
                 pass  # column already exists
 
@@ -123,15 +147,15 @@ def create_build(build: Build) -> int:
                (name, description, eso_class, subclass_1, subclass_2, role, content,
                 attribute_health, attribute_magicka, attribute_stamina,
                 food_buff, mundus_stone, game_patch, source, character_stats,
-                champion_points, cp_slots, class_masteries, notes, created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                champion_points, cp_slots, class_masteries, gear_pages, notes, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (build.name, build.description, build.eso_class,
              build.subclass_1, build.subclass_2,
              build.role, build.content, build.attribute_health, build.attribute_magicka,
              build.attribute_stamina, build.food_buff, build.mundus_stone,
              build.game_patch, build.source, build.character_stats,
              build.champion_points, build.cp_slots, build.class_masteries,
-             build.notes, now, now),
+             build.gear_pages, build.notes, now, now),
         )
         build_id = cur.lastrowid
         _seed_gear(conn, build_id)
@@ -153,7 +177,7 @@ def update_build(build: Build) -> None:
                role=?, content=?,
                attribute_health=?, attribute_magicka=?, attribute_stamina=?,
                food_buff=?, mundus_stone=?, game_patch=?, source=?, character_stats=?,
-               champion_points=?, cp_slots=?, class_masteries=?, notes=?, updated_at=?
+               champion_points=?, cp_slots=?, class_masteries=?, gear_pages=?, notes=?, updated_at=?
                WHERE id=?""",
             (build.name, build.description, build.eso_class,
              build.subclass_1, build.subclass_2,
@@ -161,7 +185,7 @@ def update_build(build: Build) -> None:
              build.attribute_stamina, build.food_buff, build.mundus_stone,
              build.game_patch, build.source, build.character_stats,
              build.champion_points, build.cp_slots, build.class_masteries,
-             build.notes, _now(), build.id),
+             build.gear_pages, build.notes, _now(), build.id),
         )
 
 
@@ -197,7 +221,7 @@ def duplicate_build(build_id: int) -> int:
 def get_skills(build_id: int) -> list[Skill]:
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT * FROM skills WHERE build_id = ? ORDER BY bar, slot",
+            "SELECT * FROM skills WHERE build_id = ? ORDER BY page, bar, slot",
             (build_id,),
         ).fetchall()
         return [Skill(**{k: r[k] for k in r.keys()}) for r in rows]
@@ -207,15 +231,15 @@ def save_skills(build_id: int, skills: list[Skill]) -> None:
     with _connect() as conn:
         conn.execute("DELETE FROM skills WHERE build_id = ?", (build_id,))
         conn.executemany(
-            "INSERT INTO skills (build_id, bar, slot, name, notes) VALUES (?,?,?,?,?)",
-            [(s.build_id, s.bar, s.slot, s.name, s.notes) for s in skills],
+            "INSERT INTO skills (build_id, bar, slot, name, notes, page) VALUES (?,?,?,?,?,?)",
+            [(s.build_id, s.bar, s.slot, s.name, s.notes, s.page) for s in skills],
         )
 
 
 def get_gear(build_id: int) -> list[GearPiece]:
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT * FROM gear WHERE build_id = ? ORDER BY id", (build_id,)
+            "SELECT * FROM gear WHERE build_id = ? ORDER BY page, id", (build_id,)
         ).fetchall()
         return [GearPiece(**{k: r[k] for k in r.keys()}) for r in rows]
 
@@ -224,8 +248,8 @@ def save_gear(build_id: int, gear: list[GearPiece]) -> None:
     with _connect() as conn:
         conn.execute("DELETE FROM gear WHERE build_id = ?", (build_id,))
         conn.executemany(
-            """INSERT INTO gear (build_id, slot, set_name, weight, trait, enchant, quality)
-               VALUES (?,?,?,?,?,?,?)""",
-            [(g.build_id, g.slot, g.set_name, g.weight, g.trait, g.enchant, g.quality)
+            """INSERT INTO gear (build_id, slot, set_name, weight, trait, enchant, quality, page)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            [(g.build_id, g.slot, g.set_name, g.weight, g.trait, g.enchant, g.quality, g.page)
              for g in gear],
         )

@@ -1,3 +1,5 @@
+import json
+
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit,
@@ -11,8 +13,7 @@ from eso_build_manager.constants import (
 from eso_build_manager.models.build import Build
 from eso_build_manager.ui.class_mastery_widget import ClassMasteryWidget
 from eso_build_manager.ui.cp_widget import CPWidget
-from eso_build_manager.ui.gear_table_widget import GearTableWidget
-from eso_build_manager.ui.skill_bar_widget import SkillBarWidget
+from eso_build_manager.ui.loadout_pages_widget import LoadoutPagesWidget
 
 def _line_to_class(line: str) -> str:
     for cls, lines in CLASS_SKILL_LINES.items():
@@ -80,7 +81,7 @@ class BuildEditorPanel(QWidget):
         self._class_combo.addItem(_PH_CLASS)
         self._class_combo.addItems(ESO_CLASSES)
 
-        self._sub_check = QCheckBox("Subclass")
+        self._sub_check = QCheckBox("Pure Class")
 
         self._sub1_label = QLabel("Sub 1:")
         self._sub1_combo = QComboBox()
@@ -113,19 +114,16 @@ class BuildEditorPanel(QWidget):
         # ── Tabs ──────────────────────────────────────────────────────────
         self._tabs = QTabWidget()
 
-        # Build tab: Skills + CP + Gear in a vertical splitter
-        self._skill_bar = SkillBarWidget()
+        # Build tab: paged Skills+Gear (Main/Trash/Boss) above CP
+        self._loadout_pages = LoadoutPagesWidget()
         self._cp_widget = CPWidget()
-        self._gear_table = GearTableWidget()
 
         build_splitter = QSplitter(Qt.Orientation.Vertical)
-        build_splitter.addWidget(self._skill_bar)
+        build_splitter.addWidget(self._loadout_pages)
         build_splitter.addWidget(self._cp_widget)
-        build_splitter.addWidget(self._gear_table)
-        build_splitter.setStretchFactor(0, 0)  # skills: fixed
+        build_splitter.setStretchFactor(0, 1)  # loadout pages: expand
         build_splitter.setStretchFactor(1, 0)  # CP: fixed
-        build_splitter.setStretchFactor(2, 1)  # gear: expands
-        build_splitter.setSizes([180, 100, 400])
+        build_splitter.setSizes([480, 100])
         self._tabs.addTab(build_splitter, "Build")
 
         self._tabs.addTab(self._build_stats_tab(), "Stats")
@@ -155,13 +153,13 @@ class BuildEditorPanel(QWidget):
         self._food_edit.textChanged.connect(self._schedule_save)
         self._mundus_combo.currentIndexChanged.connect(self._schedule_save)
         self._cp_notes.textChanged.connect(self._schedule_save)
-        self._skill_bar.changed.connect(self._schedule_save)
+        self._loadout_pages.changed.connect(self._schedule_save)
         self._cp_widget.changed.connect(self._schedule_save)
-        self._gear_table.changed.connect(self._schedule_save)
         self._mastery_widget.changed.connect(self._schedule_save)
         self._notes_edit.textChanged.connect(self._schedule_save)
 
-        self._set_sub_visible(False)
+        self._sub_check.setChecked(True)   # default: Pure Class, sub combos greyed
+        self._set_sub_enabled(False)
         self.setEnabled(False)
 
     def _build_stats_tab(self) -> QWidget:
@@ -218,9 +216,9 @@ class BuildEditorPanel(QWidget):
         self._source_edit.setText(build.source)
 
         has_sub = bool(build.subclass_1 or build.subclass_2)
-        self._sub_check.setChecked(has_sub)
+        self._sub_check.setChecked(not has_sub)
         self._rebuild_sub_combos(build.eso_class, build.subclass_1, build.subclass_2)
-        self._set_sub_visible(has_sub)
+        self._set_sub_enabled(has_sub)
 
         self._attr_health.setValue(build.attribute_health)
         self._attr_magicka.setValue(build.attribute_magicka)
@@ -231,9 +229,9 @@ class BuildEditorPanel(QWidget):
         self._cp_notes.setPlainText(build.champion_points)
         self._mastery_widget.load(build.eso_class, build.class_masteries)
         self._notes_edit.setPlainText(build.notes)
-        self._skill_bar.load(db.get_skills(build_id))
         self._cp_widget.load(build.cp_slots)
-        self._gear_table.load(db.get_gear(build_id))
+        gear_pages = json.loads(build.gear_pages) if build.gear_pages else ["Main"]
+        self._loadout_pages.load(gear_pages, db.get_skills(build_id), db.get_gear(build_id))
 
         self._blocking = False
         self.setEnabled(True)
@@ -269,8 +267,9 @@ class BuildEditorPanel(QWidget):
             self._schedule_save()
 
     def _on_subclass_toggled(self, checked: bool) -> None:
-        self._set_sub_visible(checked)
-        if checked:
+        # checked = Pure Class → disable sub combos; unchecked → enable
+        self._set_sub_enabled(not checked)
+        if not checked:
             primary = self._combo_text(self._class_combo)
             self._rebuild_sub_combos(primary, "", "")
         else:
@@ -285,9 +284,9 @@ class BuildEditorPanel(QWidget):
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
-    def _set_sub_visible(self, visible: bool) -> None:
+    def _set_sub_enabled(self, enabled: bool) -> None:
         for w in (self._sub1_label, self._sub1_combo, self._sub2_label, self._sub2_combo):
-            w.setVisible(visible)
+            w.setEnabled(enabled)
 
     def _populate_subclass_combo(
         self, combo: QComboBox, excluded_classes: set, current_val: str, placeholder: str
@@ -322,7 +321,7 @@ class BuildEditorPanel(QWidget):
     def _save(self) -> None:
         if self._current_id is None:
             return
-        use_sub = self._sub_check.isChecked()
+        use_sub = not self._sub_check.isChecked()  # Pure Class checked → no subclasses
         build = Build(
             id=self._current_id,
             name=self._name_edit.text().strip() or "New Build",
@@ -341,11 +340,12 @@ class BuildEditorPanel(QWidget):
             champion_points=self._cp_notes.toPlainText().strip(),
             cp_slots=self._cp_widget.get_data(),
             class_masteries=self._mastery_widget.get_data(),
+            gear_pages=json.dumps(self._loadout_pages.get_page_names()),
             notes=self._notes_edit.toPlainText(),
         )
         db.update_build(build)
-        db.save_skills(self._current_id, self._skill_bar.get_skills(self._current_id))
-        db.save_gear(self._current_id, self._gear_table.get_gear(self._current_id))
+        db.save_skills(self._current_id, self._loadout_pages.get_skills(self._current_id))
+        db.save_gear(self._current_id, self._loadout_pages.get_gear(self._current_id))
 
     @staticmethod
     def _load_combo(combo: QComboBox, value: str, placeholder: str) -> None:

@@ -43,7 +43,7 @@ eso-build-manager/
 │       ├── build_editor.py          # BuildEditorPanel — full edit form + tabs
 │       ├── skill_bar_widget.py      # Two-bar skill widget (5 active + ULT × 2)
 │       ├── cp_widget.py             # Champion Points 12-slot widget with drag-drop
-│       ├── gear_table_widget.py     # Gear table: 14 slots, set autocomplete + tooltips
+│       ├── gear_table_widget.py     # GearTableWidget (14 slots) + GearPagesWidget (tabs of pages)
 │       ├── class_mastery_widget.py  # Class Mastery passive checkboxes (U50+)
 │       └── stats_widget.py          # StatsInputWidget (built but not currently used in UI)
 └── data/
@@ -77,7 +77,7 @@ MainWindow (QMainWindow)
         ├── Row 2: class | subclass toggle | sub1 | sub2
         ├── Row 3: source URL / name
         └── QTabWidget
-            ├── "Build"    → QSplitter: SkillBarWidget / CPWidget / GearTableWidget
+            ├── "Build"    → QSplitter: SkillBarWidget / CPWidget / GearPagesWidget
             ├── "Stats"    → attribute pts, food, mundus stone, CP notes
             ├── "Passives" → ClassMasteryWidget
             └── "Notes"    → QPlainTextEdit
@@ -112,6 +112,7 @@ MainWindow (QMainWindow)
 | `champion_points`  | str   | Free-text CP notes                                           |
 | `cp_slots`         | str   | JSON list[str] — 12 CP star names (4 per tree)               |
 | `class_masteries`  | str   | JSON list[str] — selected Class Mastery passive names        |
+| `gear_pages`        | str   | JSON list[str] — gear page names, e.g. `["Main"]` or `["Main","Trash","Boss"]` |
 | `character_stats`  | str   | JSON dict — reserved, not shown in UI                        |
 | `notes`            | str   |                                                              |
 | `created_at/updated_at` | str | ISO 8601                                                |
@@ -137,6 +138,7 @@ MainWindow (QMainWindow)
 | `trait`    | str  | Varies by slot type (armor / weapon / jewelry trait lists)     |
 | `enchant`  | str  | Free text                                                      |
 | `quality`  | str  | Normal / Fine / Superior / Epic / Legendary                    |
+| `page`     | int  | Index into the build's `gear_pages` list (0 = first page)     |
 
 ## Constants (`constants.py`)
 
@@ -205,6 +207,15 @@ Drag-and-drop between slots via `application/x-eso-skill-slot`.
 Autocomplete uses `load_skill_names()` which merges `skills.json` base+morphs
 with all keys from `skill_ids.json` (includes Scribing skills).
 
+### Gear pages (trash/boss loadouts)
+`GearPagesWidget` (in `gear_table_widget.py`) wraps a `QTabWidget` of `GearTableWidget`
+instances, one per page. Page names live on `Build.gear_pages` (JSON list, default
+`["Main"]`); each `GearPiece.page` is the index into that list. `+`/`−` buttons in the
+tab corner add/remove pages, double-click a tab to rename. `BuildSheetWidget._gear_section`
+mirrors this read-only — only shows tabs when there's more than one page, so single-page
+builds (the common case) look unchanged. `exporter.py` carries `gear_pages` and per-piece
+`page` through JSON export/import and text export (adds a `GEAR — {page}` header per page).
+
 ### Set tooltips
 `gear_table_widget._build_tooltip(name)` reads `set_details.json` and returns HTML.
 Set via `Qt.ItemDataRole.ToolTipRole` on commit in `_SetDelegate.setModelData()`.
@@ -255,3 +266,25 @@ Two-way WebDAV sync to `ESO-Builds/` directory on Nextcloud.
 `nextcloud/url`, `nextcloud/username`, `nextcloud/password`, `nextcloud/verify_ssl`.
 
 **UI**: Nextcloud menu in main window — "Sync Now" (Ctrl+Shift+S) and "Settings…". Result shown in status bar.
+
+## TODOs
+
+### Android app sync sees 0 builds despite desktop having builds on the server
+`eso-build-manager-expo` can't use PROPFIND (Android platform limitation, see that repo's
+CLAUDE.md), so it tracks synced files via a `_index.json` manifest instead of listing the
+directory. This desktop app's `NextcloudSync`/`sync_all()` was never updated to read or write
+that manifest — it only does real PROPFIND directory listing. Net effect: builds uploaded by
+desktop are invisible to Android (not in `_index.json`), and Android reports `↓ 0` even when
+the server has plenty of `.json` files sitting in `ESO-Builds/`. Fix is to make `sync_all()`
+also populate/update `_index.json` on every upload, so both apps agree on the manifest instead
+of desktop implicitly relying on PROPFIND alone.
+
+### Gear card quality coloring reported still wrong after the Epic-color fix
+Removed Epic from `_QUALITY_COLOR` in `build_sheet.py` (`_GearCard`) since virtually all
+endgame gear is Epic quality and coloring 100% of items the same purple wasn't useful signal —
+verified via offscreen render that Epic now shows plain text and Legendary still gets its gold
+highlight. User reported "not fixed" immediately after, but this was in the same live session
+as an earlier false alarm that turned out to be a stale, not-yet-restarted process (see the
+Add/Remove Page button episode). Re-check after a full app restart before assuming the
+`_QUALITY_COLOR` edit itself is wrong — if it's still off after a clean restart, the actual
+cause is unconfirmed and needs fresh investigation, not a repeat of this fix.

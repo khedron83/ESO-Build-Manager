@@ -98,11 +98,11 @@ def sync_all(syncer: NextcloudSync) -> tuple[int, int, list[str]]:
 
     syncer.ensure_directory()
 
-    local_meta = db.list_builds_meta()  # (id, name, role, eso_class)
+    local_meta = db.list_builds_meta()  # (id, name, role, eso_class, content)
 
     # Build slug→(build_id, updated_at) map, deduplicating slugs
     slug_map: dict[str, tuple[int, str]] = {}
-    for build_id, name, _, _ in local_meta:
+    for build_id, name, _, _, _ in local_meta:
         slug = _make_slug(name)
         base = slug
         i = 2
@@ -131,7 +131,7 @@ def sync_all(syncer: NextcloudSync) -> tuple[int, int, list[str]]:
         errors.append(f"List remote: {e}")
         return uploaded, downloaded, errors
 
-    local_names_lower = {name.lower() for _, name, _, _ in local_meta}
+    local_names_lower = {name.lower() for _, name, _, _, _ in local_meta}
 
     for filename in remote_files:
         if filename in uploaded_files:
