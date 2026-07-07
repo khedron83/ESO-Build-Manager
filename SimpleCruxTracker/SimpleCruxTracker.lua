@@ -14,7 +14,7 @@ local CRUX_ABILITY_ID = 184220
 
 -- Tweak these directly to change the look; there's no in-game settings menu.
 local CONFIG = {
-    size = 32,
+    size = 42,
     defaultPosX = 600,
     defaultPosY = 600,
     -- indexed by crux count + 1
@@ -100,6 +100,7 @@ local function Initialize()
     label:SetFont("ZoFontGameLargeBold")
     label:SetVerticalAlignment(TEXT_ALIGN_CENTER)
     label:SetHorizontalAlignment(TEXT_ALIGN_CENTER)
+    label:SetScale(1.4)
 
     EM:RegisterForEvent(ADDON_NAME, EVENT_EFFECT_CHANGED, function(_, changeType, _, _, unitTag, _, _, stackCount)
         if changeType == EFFECT_RESULT_FADED then
