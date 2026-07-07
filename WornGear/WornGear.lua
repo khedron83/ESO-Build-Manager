@@ -502,13 +502,22 @@ end)
 
 -- Recorded live (not just at Snapshot time) so it's captured even if the
 -- character logs out shortly after turning in a writ, before another
--- snapshot would otherwise happen.
+-- snapshot would otherwise happen. Also patches __char__.dailies.writsDone
+-- directly, same reasoning as RefreshDungeonDaily below — that's the field
+-- the app actually reads, and it otherwise wouldn't update until the next
+-- full Snapshot().
 EVENT_MANAGER:RegisterForEvent("WornGear_WritVoucher", EVENT_WRIT_VOUCHER_UPDATE, function(_, newAmount, oldAmount)
     if newAmount <= oldAmount then return end
     local charName = GetUnitName("player")
     WornGearSV[charName] = WornGearSV[charName] or {}
     WornGearSV[charName].dailyTracking = WornGearSV[charName].dailyTracking or {}
     WornGearSV[charName].dailyTracking.lastWritVoucherGain = GetTimeStamp()
+
+    local char = WornGearSV[charName].__char__
+    if char then
+        char.dailies = char.dailies or {}
+        char.dailies.writsDone = true
+    end
 end)
 
 -- Snapshot() only runs once per session (see hasSnapshotted above), so without
