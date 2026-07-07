@@ -3,7 +3,7 @@
 import os, sys, subprocess, shutil, time
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSettings, QSortFilterProxyModel, Signal
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSettings, QSortFilterProxyModel, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QMessageBox, QWidget, QVBoxLayout, QHBoxLayout,
@@ -832,6 +832,11 @@ class MainWindow(QMainWindow):
         self._status = QStatusBar()
         self.setStatusBar(self._status)
         self._reload()
+
+        self._auto_refresh_timer = QTimer(self)
+        self._auto_refresh_timer.setInterval(60_000)
+        self._auto_refresh_timer.timeout.connect(self._reload)
+        self._auto_refresh_timer.start()
 
     def _setup_menu(self):
         # File
