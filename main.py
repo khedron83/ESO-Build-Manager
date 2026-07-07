@@ -475,7 +475,9 @@ def _tab_inventory(chars: list[model.Character]) -> QTableView:
                'Lockpicks', 'Repair Kits', 'Bag Space']
     rows = []
     for c in chars:
-        inv = {i.name: i.count for i in c.inventory}
+        inv: dict[str, int] = {}
+        for i in c.inventory:
+            inv[i.name] = inv.get(i.name, 0) + i.count
         rows.append([
             _cell(c.name,                            c.name),
             _cell(c.soul_gems_filled,                c.soul_gems_filled),

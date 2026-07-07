@@ -284,7 +284,11 @@ local function ReadInventory()
     local bagId = BAG_BACKPACK
     for i = 0, GetBagSize(bagId) - 1 do
         local name = GetItemName(bagId, i)
-        if name and name ~= "" then
+        -- Stolen items sit in their own stack apart from an identically-named
+        -- legit stack (e.g. 200 owned lockpicks + 5 stolen ones as two separate
+        -- slots) and aren't usable for most purposes until fenced, so they're
+        -- excluded entirely rather than counted alongside the real total.
+        if name and name ~= "" and not IsItemStolen(bagId, i) then
             local _, count = GetItemInfo(bagId, i)
             items[#items + 1] = { name = name, count = count or 1, bag = "Backpack" }
             if IsItemSoulGem(SOUL_GEM_TYPE_FILLED, bagId, i) then
