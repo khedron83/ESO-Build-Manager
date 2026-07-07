@@ -1,5 +1,5 @@
 ## Title: Simple Crux Tracker
-## Description: Small visual indicator for Arcanist Crux stacks — 3 pips that light up as you build Crux, nothing else.
+## Description: Small always-on number showing your current Arcanist Crux stacks (0-3), nothing else.
 ## Author: khedron83
 ## APIVersion: 101050
 ## SavedVariables: SimpleCruxTrackerSV
