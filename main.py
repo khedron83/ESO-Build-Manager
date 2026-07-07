@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """ESO Build Manager — character stats viewer + build editor."""
-import os, sys, subprocess
+import os, sys, subprocess, shutil, time
+from datetime import datetime
 
 from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSettings, QSortFilterProxyModel, Signal
 from PySide6.QtGui import QAction, QColor, QFont, QPixmap
@@ -42,8 +43,18 @@ _ZEUS_SV = (
 )
 _SYNC_FILES = ['LeoAltholic.lua', 'WizardsWardrobe.lua', 'WornGear.lua']
 
-
 def _sync_from_zeus() -> None:
+    # 'this_pc' mode reads save files straight off local disk instead of scp-ing
+    # over the network — for when the game and the build manager are running on
+    # the same machine (e.g. streaming from this PC). Set in Options…
+    sync_mode = QSettings().value('sync/mode', 'zeus')
+    if sync_mode == 'this_pc':
+        for fname in _SYNC_FILES:
+            try:
+                shutil.copy(os.path.join(_ZEUS_SV, fname), os.path.join(_DIR, fname))
+            except Exception:
+                pass
+        return
     for fname in _SYNC_FILES:
         try:
             subprocess.run(
@@ -85,6 +96,16 @@ def _fmt_time(s: int) -> str:
 
 def _n(v: int) -> str:
     return f'{v:,}' if v else '—'
+
+
+def _fmt_updated(ts: int) -> str:
+    if not ts:
+        return 'Unknown'
+    delta = int(time.time()) - ts
+    if delta < 60:          return 'just now'
+    if delta < 3600:        return f'{delta // 60}m ago'
+    if delta < 86400:       return f'{delta // 3600}h ago'
+    return f'{delta // 86400}d ago'
 
 
 # ── table model with raw sort values ─────────────────────────────────────────
@@ -205,10 +226,18 @@ def _bio_card(c: model.Character) -> QFrame:
         top.addWidget(badge)
     vbox.addLayout(top)
 
-    # Race · Faction
+    # Race · Faction · Last updated
+    sub_row = QHBoxLayout(); sub_row.setSpacing(8)
     sub = QLabel(f'{c.race_name}  ·  {c.faction_name}')
     sub.setStyleSheet('color: palette(placeholderText); font-size: 11px;')
-    vbox.addWidget(sub)
+    sub_row.addWidget(sub, 1)
+    updated_lbl = QLabel(f'Updated {_fmt_updated(c.last_updated)}')
+    updated_lbl.setStyleSheet('color: palette(placeholderText); font-size: 10px;')
+    updated_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    if c.last_updated:
+        updated_lbl.setToolTip(datetime.fromtimestamp(c.last_updated).strftime('%Y-%m-%d %H:%M:%S'))
+    sub_row.addWidget(updated_lbl)
+    vbox.addLayout(sub_row)
 
     # Divider
     hr = QFrame(); hr.setFrameShape(QFrame.Shape.HLine)
@@ -443,7 +472,7 @@ def _tab_champion(chars: list[model.Character]) -> QTableView:
 
 def _tab_inventory(chars: list[model.Character]) -> QTableView:
     headers = ['Character', 'Gems Full', 'Gems Empty',
-               'Lockpicks', 'Repair Kits', 'Bag Used', 'Bag Free', 'Bag Size']
+               'Lockpicks', 'Repair Kits', 'Bag Space']
     rows = []
     for c in chars:
         inv = {i.name: i.count for i in c.inventory}
@@ -453,9 +482,7 @@ def _tab_inventory(chars: list[model.Character]) -> QTableView:
             _cell(c.soul_gems_empty,                 c.soul_gems_empty),
             _cell(inv.get('Lockpick', '—'),          inv.get('Lockpick', 0)),
             _cell(inv.get('Equipment Repair Kit', '—'), inv.get('Equipment Repair Kit', 0)),
-            _cell(c.bag_used,                        c.bag_used),
-            _cell(c.bag_size - c.bag_used,           c.bag_size - c.bag_used),
-            _cell(c.bag_size,                        c.bag_size),
+            _cell(f'{c.bag_used}/{c.bag_size}',      c.bag_used),
         ])
     return _make_view(CharTable(headers, rows))
 
@@ -789,10 +816,12 @@ class MainWindow(QMainWindow):
         # File
         self._reload_action = QAction('&Reload Data', self)
         self._reload_action.setShortcut('Ctrl+R')
-        self._reload_action.setStatusTip('Sync save files from zeus and reload character data')
+        self._reload_action.setStatusTip('Sync save files (see Options…) and reload character data')
         self._reload_action.triggered.connect(self._reload)
         file_menu = self.menuBar().addMenu('&File')
         file_menu.addAction(self._reload_action)
+        file_menu.addSeparator()
+        file_menu.addAction(QAction('&Options…', self, triggered=self._open_options))
         file_menu.addSeparator()
         file_menu.addAction(QAction('E&xit', self, triggered=self.close))
 
@@ -842,6 +871,10 @@ class MainWindow(QMainWindow):
         if errors:
             QMessageBox.warning(self, 'Sync Warnings',
                                 'Sync completed with errors:\n\n' + '\n'.join(errors))
+
+    def _open_options(self):
+        from eso_build_manager.ui.options_dialog import OptionsDialog
+        OptionsDialog(self).exec()
 
     def _open_nc_settings(self):
         from eso_build_manager.ui.settings_dialog import NextcloudSettingsDialog

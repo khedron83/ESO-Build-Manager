@@ -142,11 +142,12 @@ local function ReadLiveSkills()
             if displayName ~= "" then
                 local boundId = GetSlotBoundId(slotIndex, bar.id)
                 if boundId and boundId ~= 0 then
-                    local baseId = GetCraftedAbilityRepresentativeAbilityId(boundId, "player")
-                    if baseId and baseId ~= 0 then
-                        local base = GetAbilityName(baseId, "player")
-                        if base and base ~= "" then baseName = base end
-                    end
+                    -- boundId IS the craftedAbilityId directly for scribed slots (there are
+                    -- only ~12 grimoires, so these are small IDs like 12, vs the 5-digit
+                    -- regular ability IDs everything else has). GetCraftedAbilityDisplayName
+                    -- returns "" for non-scribed slots, so this doubles as the scribed check.
+                    local craftedName = GetCraftedAbilityDisplayName(boundId)
+                    if craftedName and craftedName ~= "" then baseName = craftedName end
                 end
             end
             barSkills[#barSkills + 1] = { name = displayName, base = baseName }
@@ -274,21 +275,22 @@ local function ReadChampionData()
 end
 
 local function ReadInventory()
+    -- Personal inventory only: the bank is one shared pool for all characters
+    -- (see bankCurrencies below), so it must never be folded into a character's
+    -- own item/soul gem counts here.
     local items = {}
     local soulsEmpty = 0
     local soulsFilled = 0
-    for _, bagInfo in ipairs({ { BAG_BACKPACK, "Backpack" }, { BAG_BANK, "Bank" } }) do
-        local bagId, bagName = bagInfo[1], bagInfo[2]
-        for i = 0, GetBagSize(bagId) do
-            local name = GetItemName(bagId, i)
-            if name and name ~= "" then
-                local _, count = GetItemInfo(bagId, i)
-                items[#items + 1] = { name = name, count = count or 1, bag = bagName }
-                if IsItemSoulGem(SOUL_GEM_TYPE_FILLED, bagId, i) then
-                    soulsFilled = soulsFilled + (count or 1)
-                elseif IsItemSoulGem(SOUL_GEM_TYPE_EMPTY, bagId, i) then
-                    soulsEmpty = soulsEmpty + (count or 1)
-                end
+    local bagId = BAG_BACKPACK
+    for i = 0, GetBagSize(bagId) - 1 do
+        local name = GetItemName(bagId, i)
+        if name and name ~= "" then
+            local _, count = GetItemInfo(bagId, i)
+            items[#items + 1] = { name = name, count = count or 1, bag = "Backpack" }
+            if IsItemSoulGem(SOUL_GEM_TYPE_FILLED, bagId, i) then
+                soulsFilled = soulsFilled + (count or 1)
+            elseif IsItemSoulGem(SOUL_GEM_TYPE_EMPTY, bagId, i) then
+                soulsEmpty = soulsEmpty + (count or 1)
             end
         end
     end
@@ -312,6 +314,7 @@ local function ReadCharData()
             isChampion     = CanUnitGainChampionPoints("player"),
             secondsPlayed  = GetSecondsPlayed(),
             skillPoints    = GetAvailableSkillPoints(),
+            lastUpdated    = GetTimeStamp(),
         },
         stats = {
             healthMax      = GetPlayerStat(STAT_HEALTH_MAX,          STAT_BONUS_OPTION_APPLY_BONUS),

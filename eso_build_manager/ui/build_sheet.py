@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QClipboard, QGuiApplication, QPixmap
@@ -18,6 +19,21 @@ from eso_build_manager.constants import (
 )
 
 _SET_DETAILS: dict[str, dict] | None = None
+
+
+def _fmt_updated(iso_str: str) -> str:
+    if not iso_str:
+        return ''
+    try:
+        ts = datetime.fromisoformat(iso_str)
+    except ValueError:
+        return ''
+    delta = datetime.now(timezone.utc) - ts.astimezone(timezone.utc)
+    secs = delta.total_seconds()
+    if secs < 60:    return 'Updated just now'
+    if secs < 3600:  return f'Updated {int(secs // 60)}m ago'
+    if secs < 86400: return f'Updated {int(secs // 3600)}h ago'
+    return f'Updated {int(secs // 86400)}d ago'
 
 
 def _get_set_details() -> dict[str, dict]:
@@ -375,6 +391,13 @@ class BuildSheetWidget(QWidget):
         f.setBold(True)
         name_lbl.setFont(f)
         top.addWidget(name_lbl, 1)
+
+        updated_text = _fmt_updated(build.updated_at)
+        if updated_text:
+            updated_lbl = QLabel(updated_text)
+            updated_lbl.setStyleSheet('color: palette(placeholderText); font-size: 11px;')
+            updated_lbl.setToolTip(build.updated_at)
+            top.addWidget(updated_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
 
         if save_callback:
             save_btn = QPushButton("⬆  Save as Build")

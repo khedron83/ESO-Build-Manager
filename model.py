@@ -44,6 +44,7 @@ class Character:
     champion_points: int = 0
     is_champion: bool = False
     seconds_played: int = 0
+    last_updated: int = 0  # unix timestamp of the addon snapshot that produced this data
     gold: int = 0
     ap: int = 0
     telvar: int = 0
@@ -148,6 +149,7 @@ def _parse_wg_char(char_name: str, c: dict) -> Character:
         champion_points=bio.get('championPoints', 0),
         is_champion=bio.get('isChampion', False),
         seconds_played=bio.get('secondsPlayed', 0),
+        last_updated=bio.get('lastUpdated', 0),
         skill_points_unspent=bio.get('skillPoints', 0),
         gold=cur.get('gold', 0),
         ap=cur.get('ap', 0),
