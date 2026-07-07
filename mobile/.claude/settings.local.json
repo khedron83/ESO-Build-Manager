@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -rn \"useSettings\\\\|SettingsContext\\\\|SettingsProvider\" --include=\"*.ts*\" -not -path \"*/node_modules/*\" .)",
+      "Bash(grep *)",
+      "Bash(npx expo *)",
+      "Bash(npm view *)",
+      "Bash(npx eas *)"
+    ]
+  }
+}

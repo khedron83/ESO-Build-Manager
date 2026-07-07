@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "ESO Build Manager",
+    "slug": "eso-build-manager",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a1e",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "package": "com.cubicserenity.esobuildmanager"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cubicserenity.esobuildmanager"
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b8f9397f-4bdf-478d-bdd9-7de48633dcb5"
+      }
+    },
+    "owner": "khedron",
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "networkSecurityConfig": "./network_security_config.xml"
+          }
+        }
+      ]
+    ]
+  }
+}

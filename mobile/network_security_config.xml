@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ponytail: trusts user-installed CAs (e.g. a self-signed Nextcloud cert)
+     in addition to the system store. Install the server's cert on the
+     device/emulator as a user CA under Settings > Security > Encryption &
+     credentials > Install a certificate. -->
+<network-security-config>
+  <base-config>
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="user" />
+    </trust-anchors>
+  </base-config>
+</network-security-config>
