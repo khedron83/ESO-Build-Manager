@@ -510,3 +510,18 @@ EVENT_MANAGER:RegisterForEvent("WornGear_WritVoucher", EVENT_WRIT_VOUCHER_UPDATE
     WornGearSV[charName].dailyTracking = WornGearSV[charName].dailyTracking or {}
     WornGearSV[charName].dailyTracking.lastWritVoucherGain = GetTimeStamp()
 end)
+
+-- Snapshot() only runs once per session (see hasSnapshotted above), so without
+-- this the dungeon flag would stay stale at whatever it was when you logged
+-- in until your next session, even though IsActivityEligibleForDailyReward
+-- itself would report correctly if re-queried right now. Patch just that one
+-- field in place rather than re-running the full Snapshot().
+local function RefreshDungeonDaily()
+    local charName = GetUnitName("player")
+    local char = WornGearSV[charName] and WornGearSV[charName].__char__
+    if not char then return end
+    char.dailies = char.dailies or {}
+    char.dailies.dungeonDone = not IsActivityEligibleForDailyReward(LFG_ACTIVITY_DUNGEON)
+end
+EVENT_MANAGER:RegisterForEvent("WornGear_DungeonComplete", EVENT_ACTIVITY_FINDER_ACTIVITY_COMPLETE, RefreshDungeonDaily)
+EVENT_MANAGER:RegisterForEvent("WornGear_DungeonCooldown", EVENT_ACTIVITY_FINDER_COOLDOWNS_UPDATE, RefreshDungeonDaily)
