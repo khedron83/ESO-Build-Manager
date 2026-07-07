@@ -301,10 +301,24 @@ local function ReadInventory()
     return items, soulsEmpty, soulsFilled
 end
 
+-- Writ turn-ins don't have a clean "already claimed today" API the way the
+-- daily random dungeon does (see dailies.dungeonDone below), so this tracks
+-- the last time this character's Writ Voucher currency went up (all 7 writ
+-- types pay vouchers) and compares that against today's reset boundary.
+-- Persisted per-character since Snapshot() overwrites WornGearSV[charName]
+-- wholesale on every call.
+local function ReadDailyWritStatus(charName)
+    local tracking = WornGearSV[charName] and WornGearSV[charName].dailyTracking
+    local lastGain = tracking and tracking.lastWritVoucherGain or 0
+    local startOfToday = GetTimeStamp() - GetSecondsSinceMidnight()
+    return lastGain >= startOfToday
+end
+
 local function ReadCharData()
     local alliance = GetUnitAlliance("player")
     local items, soulsEmpty, soulsFilled = ReadInventory()
     local invBonus, _, stamBonus, _, speedBonus = GetRidingStats()
+    local charName = GetUnitName("player")
 
     return {
         bio = {
@@ -371,6 +385,13 @@ local function ReadCharData()
         skills    = ReadSkillLines(),
         champion  = ReadChampionData(),
         inventory = items,
+        -- IsActivityEligibleForDailyReward is server-authoritative, so unlike
+        -- the writ check it's correct no matter when in the session this runs
+        -- (even if the dungeon was completed in an earlier session today).
+        dailies = {
+            dungeonDone = not IsActivityEligibleForDailyReward(LFG_ACTIVITY_DUNGEON),
+            writsDone   = ReadDailyWritStatus(charName),
+        },
     }
 end
 
@@ -378,6 +399,10 @@ end
 
 local function Snapshot()
     local charName = GetUnitName("player")
+    -- dailyTracking lives outside the builds table but Snapshot() below
+    -- replaces WornGearSV[charName] wholesale, so it has to be carried over
+    -- explicitly rather than just left alone.
+    local prevDailyTracking = WornGearSV[charName] and WornGearSV[charName].dailyTracking
     local builds = {}
     local count = 0
 
@@ -454,6 +479,7 @@ local function Snapshot()
     builds["__char__"] = ReadCharData()
 
     WornGearSV[charName] = builds
+    WornGearSV[charName].dailyTracking = prevDailyTracking or { lastWritVoucherGain = 0 }
     d("WornGear: saved " .. count .. " armory builds for " .. charName)
 end
 
@@ -472,4 +498,15 @@ EVENT_MANAGER:RegisterForEvent("WornGear_Restore", EVENT_ARMORY_BUILD_RESTORE_RE
     if result == ARMORY_BUILD_RESTORE_RESULT_SUCCESS then
         zo_callLater(Snapshot, 1500)
     end
+end)
+
+-- Recorded live (not just at Snapshot time) so it's captured even if the
+-- character logs out shortly after turning in a writ, before another
+-- snapshot would otherwise happen.
+EVENT_MANAGER:RegisterForEvent("WornGear_WritVoucher", EVENT_WRIT_VOUCHER_UPDATE, function(_, newAmount, oldAmount)
+    if newAmount <= oldAmount then return end
+    local charName = GetUnitName("player")
+    WornGearSV[charName] = WornGearSV[charName] or {}
+    WornGearSV[charName].dailyTracking = WornGearSV[charName].dailyTracking or {}
+    WornGearSV[charName].dailyTracking.lastWritVoucherGain = GetTimeStamp()
 end)

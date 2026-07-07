@@ -442,6 +442,25 @@ def _tab_crafting(chars: list[model.Character]) -> QTableView:
     return _make_view(CharTable(headers, rows))
 
 
+def _tab_dailies(chars: list[model.Character]) -> QTableView:
+    headers = ['Character', 'Random Dungeon', 'Writs']
+    done_color = QColor('#4dbd74')
+    todo_color = QColor('#f87171')
+
+    def _status_cell(done: bool):
+        return _cell('Done' if done else 'Not yet', 1 if done else 0, None,
+                     done_color if done else todo_color)
+
+    rows = []
+    for c in chars:
+        rows.append([
+            _cell(c.name, c.name),
+            _status_cell(c.daily_dungeon_done),
+            _status_cell(c.daily_writs_done),
+        ])
+    return _make_view(CharTable(headers, rows))
+
+
 def _tab_champion(chars: list[model.Character]) -> QTableView:
     headers = ['Character', 'CP Total', 'Unspent'] + model.CONSTELLATIONS
 
@@ -895,6 +914,7 @@ class MainWindow(QMainWindow):
             cur = self._tabs.currentIndex()
             self._tabs.clear()
             self._tabs.addTab(_tab_bio(chars),                        'Bio')
+            self._tabs.addTab(_tab_dailies(chars),                    'Dailies')
             self._tabs.addTab(_tab_stats(chars),                      'Stats')
             self._tabs.addTab(_tab_skills(chars, worn_data),           'Skills')
             self._tabs.addTab(_tab_guilds(chars),                     'Guilds')

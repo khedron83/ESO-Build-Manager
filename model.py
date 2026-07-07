@@ -83,6 +83,8 @@ class Character:
     skills_craft: list[SkillLine] = field(default_factory=list)
     constellations: list[Constellation] = field(default_factory=list)
     inventory: list[InventoryItem] = field(default_factory=list)
+    daily_dungeon_done: bool = False
+    daily_writs_done: bool = False
 
 
 def extract(lua_data: dict) -> list[Character]:
@@ -119,6 +121,7 @@ def _parse_wg_char(char_name: str, c: dict) -> Character:
     sk   = c.get('skills', {})
     champ = c.get('champion', {})
     inv_raw = c.get('inventory', [])
+    dailies = c.get('dailies', {})
 
     # Champion constellations from full per-star data
     cp_spent = cp_unspent = 0
@@ -188,6 +191,8 @@ def _parse_wg_char(char_name: str, c: dict) -> Character:
         skills_craft=_wg_skill_lines(sk.get('craft', [])),
         constellations=constellations,
         inventory=items,
+        daily_dungeon_done=dailies.get('dungeonDone', False) if isinstance(dailies, dict) else False,
+        daily_writs_done=dailies.get('writsDone', False) if isinstance(dailies, dict) else False,
     )
 
 
