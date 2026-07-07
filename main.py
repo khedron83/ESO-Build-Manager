@@ -816,12 +816,12 @@ class MainWindow(QMainWindow):
         # File
         self._reload_action = QAction('&Reload Data', self)
         self._reload_action.setShortcut('Ctrl+R')
-        self._reload_action.setStatusTip('Sync save files (see Options…) and reload character data')
+        self._reload_action.setStatusTip('Sync save files (see Settings…) and reload character data')
         self._reload_action.triggered.connect(self._reload)
         file_menu = self.menuBar().addMenu('&File')
         file_menu.addAction(self._reload_action)
         file_menu.addSeparator()
-        file_menu.addAction(QAction('&Options…', self, triggered=self._open_options))
+        file_menu.addAction(QAction('&Settings…', self, triggered=self._open_settings))
         file_menu.addSeparator()
         file_menu.addAction(QAction('E&xit', self, triggered=self.close))
 
@@ -831,8 +831,6 @@ class MainWindow(QMainWindow):
         sync_action.setShortcut('Ctrl+Shift+S')
         sync_action.triggered.connect(self._sync_now)
         nc_menu.addAction(sync_action)
-        nc_menu.addSeparator()
-        nc_menu.addAction(QAction('Settings…', self, triggered=self._open_nc_settings))
 
         # Help
         help_menu = self.menuBar().addMenu('&Help')
@@ -844,13 +842,13 @@ class MainWindow(QMainWindow):
 
     def _sync_now(self):
         from eso_build_manager.sync.nextcloud import NextcloudSyncError, sync_all
-        from eso_build_manager.ui.settings_dialog import NextcloudSettingsDialog
+        from eso_build_manager.ui.settings_dialog import SettingsDialog
 
-        client = NextcloudSettingsDialog.get_sync_client()
+        client = SettingsDialog.get_sync_client()
         if client is None:
             QMessageBox.information(
                 self, 'Nextcloud Sync',
-                'Configure your Nextcloud server under Nextcloud → Settings… first.',
+                'Configure your Nextcloud server under File → Settings… first.',
             )
             return
 
@@ -872,13 +870,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, 'Sync Warnings',
                                 'Sync completed with errors:\n\n' + '\n'.join(errors))
 
-    def _open_options(self):
-        from eso_build_manager.ui.options_dialog import OptionsDialog
-        OptionsDialog(self).exec()
-
-    def _open_nc_settings(self):
-        from eso_build_manager.ui.settings_dialog import NextcloudSettingsDialog
-        NextcloudSettingsDialog(self).exec()
+    def _open_settings(self):
+        from eso_build_manager.ui.settings_dialog import SettingsDialog
+        SettingsDialog(self).exec()
 
     def _about(self):
         QMessageBox.about(self, 'About ESO Build Manager',

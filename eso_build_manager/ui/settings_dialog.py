@@ -4,26 +4,62 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QGroupBox,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QRadioButton,
     QVBoxLayout,
 )
 
 from eso_build_manager.sync.nextcloud import NextcloudSync, NextcloudSyncError
 
 
-class NextcloudSettingsDialog(QDialog):
+class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Nextcloud Settings")
+        self.setWindowTitle("Settings")
         self.setMinimumWidth(420)
         self._build_ui()
         self._load()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
+
+        layout.addWidget(self._build_sync_group())
+        layout.addWidget(self._build_nextcloud_group())
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self._save_and_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _build_sync_group(self) -> QGroupBox:
+        group = QGroupBox("Save file source")
+        sync_layout = QVBoxLayout(group)
+
+        self._zeus_radio = QRadioButton("Connect to Zeus")
+        self._this_pc_radio = QRadioButton("This PC")
+        sync_layout.addWidget(self._zeus_radio)
+        sync_layout.addWidget(self._this_pc_radio)
+
+        note = QLabel(
+            "<small>Connect to Zeus syncs save files over the network via scp. "
+            "Use This PC when the game and build manager are running on the same "
+            "machine (e.g. streaming from this PC) to read save files directly "
+            "from disk instead.</small>"
+        )
+        note.setWordWrap(True)
+        sync_layout.addWidget(note)
+
+        return group
+
+    def _build_nextcloud_group(self) -> QGroupBox:
+        group = QGroupBox("Nextcloud")
+        layout = QVBoxLayout(group)
 
         form = QFormLayout()
 
@@ -61,25 +97,27 @@ class NextcloudSettingsDialog(QDialog):
         self._status = QLabel()
         layout.addWidget(self._status)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self._save_and_accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        return group
 
     def _load(self):
         s = QSettings()
+
+        mode = s.value("sync/mode", "zeus")
+        self._this_pc_radio.setChecked(mode == "this_pc")
+        self._zeus_radio.setChecked(mode != "this_pc")
+
         self._url.setText(s.value("nextcloud/url", ""))
         self._user.setText(s.value("nextcloud/username", ""))
         self._pwd.setText(s.value("nextcloud/password", ""))
         self._verify_ssl.setChecked(s.value("nextcloud/verify_ssl", True, type=bool))
 
     def _save_and_accept(self):
-        if not self._url.text().strip():
-            QMessageBox.warning(self, "Missing", "Server URL is required.")
+        if self._url.text().strip() and not self._user.text().strip():
+            QMessageBox.warning(self, "Missing", "Nextcloud username is required if a server URL is set.")
             return
+
         s = QSettings()
+        s.setValue("sync/mode", "this_pc" if self._this_pc_radio.isChecked() else "zeus")
         s.setValue("nextcloud/url", self._url.text().strip())
         s.setValue("nextcloud/username", self._user.text().strip())
         s.setValue("nextcloud/password", self._pwd.text())
