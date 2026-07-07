@@ -303,15 +303,19 @@ end
 
 -- Writ turn-ins don't have a clean "already claimed today" API the way the
 -- daily random dungeon does (see dailies.dungeonDone below), so this tracks
--- the last time this character's Writ Voucher currency went up (all 7 writ
--- types pay vouchers) and compares that against today's reset boundary.
--- Persisted per-character since Snapshot() overwrites WornGearSV[charName]
--- wholesale on every call.
+-- the last time a QUEST_TYPE_CRAFTING quest was completed (see the
+-- EVENT_QUEST_COMPLETE handler below) and compares that against today's
+-- reset boundary. Persisted per-character since Snapshot() overwrites
+-- WornGearSV[charName] wholesale on every call.
+--
+-- Not Writ Voucher currency: that's a Master Writ reward specifically, not
+-- something the 7 regular daily writs grant, so it never fires for a normal
+-- writ turn-in.
 local function ReadDailyWritStatus(charName)
     local tracking = WornGearSV[charName] and WornGearSV[charName].dailyTracking
-    local lastGain = tracking and tracking.lastWritVoucherGain or 0
+    local lastCompleted = tracking and tracking.lastWritCompleted or 0
     local startOfToday = GetTimeStamp() - GetSecondsSinceMidnight()
-    return lastGain >= startOfToday
+    return lastCompleted >= startOfToday
 end
 
 local function ReadCharData()
@@ -479,7 +483,7 @@ local function Snapshot()
     builds["__char__"] = ReadCharData()
 
     WornGearSV[charName] = builds
-    WornGearSV[charName].dailyTracking = prevDailyTracking or { lastWritVoucherGain = 0 }
+    WornGearSV[charName].dailyTracking = prevDailyTracking or { lastWritCompleted = 0 }
     d("WornGear: saved " .. count .. " armory builds for " .. charName)
 end
 
@@ -505,13 +509,14 @@ end)
 -- snapshot would otherwise happen. Also patches __char__.dailies.writsDone
 -- directly, same reasoning as RefreshDungeonDaily below — that's the field
 -- the app actually reads, and it otherwise wouldn't update until the next
--- full Snapshot().
-EVENT_MANAGER:RegisterForEvent("WornGear_WritVoucher", EVENT_WRIT_VOUCHER_UPDATE, function(_, newAmount, oldAmount)
-    if newAmount <= oldAmount then return end
+-- full Snapshot(). Filtered to QUEST_TYPE_CRAFTING since EVENT_QUEST_COMPLETE
+-- fires for every quest type, not just writs.
+EVENT_MANAGER:RegisterForEvent("WornGear_WritComplete", EVENT_QUEST_COMPLETE, function(_, questName, level, prevXp, curXp, cp, questType)
+    if questType ~= QUEST_TYPE_CRAFTING then return end
     local charName = GetUnitName("player")
     WornGearSV[charName] = WornGearSV[charName] or {}
     WornGearSV[charName].dailyTracking = WornGearSV[charName].dailyTracking or {}
-    WornGearSV[charName].dailyTracking.lastWritVoucherGain = GetTimeStamp()
+    WornGearSV[charName].dailyTracking.lastWritCompleted = GetTimeStamp()
 
     local char = WornGearSV[charName].__char__
     if char then
