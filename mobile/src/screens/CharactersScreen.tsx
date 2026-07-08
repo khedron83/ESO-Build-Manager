@@ -1,42 +1,45 @@
-import React, { useState, useMemo, useContext } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList, Build } from '../types';
+import type { RootStackParamList, Character } from '../types';
 import { colors, spacing, radius, font } from '../theme';
-import { ROLES, ROLE_COLORS } from '../data/constants';
-import { useBuilds } from '../hooks/useBuilds';
+import { useCharacters } from '../hooks/useCharacters';
 import { useSettings } from '../hooks/useSettings';
-import { sync } from '../utils/sync';
-import * as storage from '../utils/storage';
+import { syncCharacters } from '../utils/characterSync';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Builds'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'Characters'>;
 
-export default function BuildsScreen({ navigation }: Props) {
-  const { builds, loaded, deleteBuild, importBuild, refresh } = useBuilds();
+export default function CharactersScreen({ navigation }: Props) {
+  const { characters, loaded, refresh } = useCharacters();
   const { config } = useSettings();
   const [query, setQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
+  const [accountFilter, setAccountFilter] = useState('');
   const [syncing, setSyncing] = useState(false);
+
+  const accounts = useMemo(
+    () => [...new Set(characters.map(c => c.account).filter(Boolean))].sort(),
+    [characters],
+  );
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
-    return builds.filter(b => {
-      const matchRole = !roleFilter || b.role === roleFilter;
-      const matchQ = !q || b.name.toLowerCase().includes(q) || b.esoClass.toLowerCase().includes(q);
-      return matchRole && matchQ;
+    return characters.filter(c => {
+      const matchAccount = !accountFilter || c.account === accountFilter;
+      const matchQ = !q || c.name.toLowerCase().includes(q) || c.class_name.toLowerCase().includes(q);
+      return matchAccount && matchQ;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [builds, query, roleFilter]);
+  }, [characters, query, accountFilter]);
 
   async function handleSync() {
     if (!config.url) { Alert.alert('No server configured', 'Add Nextcloud details in Settings.'); return; }
     setSyncing(true);
     try {
-      const result = await sync(config);
+      const result = await syncCharacters(config);
       await refresh();
-      const msg = `↑ ${result.uploaded}  ↓ ${result.downloaded}` +
+      const msg = `↓ ${result.downloaded} characters` +
         (result.errors.length ? `\n${result.errors.join('\n')}` : '');
       Alert.alert('Sync complete', msg);
     } catch (e) {
@@ -46,22 +49,14 @@ export default function BuildsScreen({ navigation }: Props) {
     }
   }
 
-  function confirmDelete(build: Build) {
-    Alert.alert('Delete build?', build.name, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteBuild(build.id) },
-    ]);
-  }
-
   if (!loaded) return <ActivityIndicator style={s.loader} color={colors.primary} />;
 
   return (
     <View style={s.container}>
-      {/* Search + header row */}
       <View style={s.topRow}>
         <TextInput
           style={s.search}
-          placeholder="Search builds..."
+          placeholder="Search characters..."
           placeholderTextColor={colors.textSecondary}
           value={query}
           onChangeText={setQuery}
@@ -73,68 +68,54 @@ export default function BuildsScreen({ navigation }: Props) {
           {syncing ? <ActivityIndicator size="small" color={colors.primary} /> :
             <Text style={s.iconBtnText}>⇅</Text>}
         </TouchableOpacity>
-        <TouchableOpacity style={s.iconBtn} onPress={() => navigation.navigate('Characters')}>
-          <Text style={s.iconBtnText}>👤</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.iconBtn} onPress={() => navigation.navigate('Settings')}>
-          <Text style={s.iconBtnText}>⚙</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Role filter chips */}
-      <View style={s.chipRow}>
-        {['', ...ROLES].map(role => (
-          <TouchableOpacity
-            key={role || 'all'}
-            style={[s.chip, roleFilter === role && s.chipActive]}
-            onPress={() => setRoleFilter(role)}
-          >
-            <Text style={[s.chipText, roleFilter === role && { color: colors.background }]}>
-              {role || 'All'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {accounts.length > 1 && (
+        <View style={s.chipRow}>
+          {['', ...accounts].map(acct => (
+            <TouchableOpacity
+              key={acct || 'all'}
+              style={[s.chip, accountFilter === acct && s.chipActive]}
+              onPress={() => setAccountFilter(acct)}
+            >
+              <Text style={[s.chipText, accountFilter === acct && { color: colors.background }]}>
+                {acct || 'All Accounts'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <FlatList
         data={filtered}
-        keyExtractor={b => b.id}
+        keyExtractor={c => c.name}
         contentContainerStyle={s.list}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={s.item}
-            onPress={() => navigation.navigate('BuildDetail', { buildId: item.id })}
-            onLongPress={() => confirmDelete(item)}
+            onPress={() => navigation.navigate('CharacterDetail', { name: item.name })}
             activeOpacity={0.7}
           >
             <View style={s.itemLeft}>
               <Text style={s.itemName} numberOfLines={1}>{item.name}</Text>
               <View style={s.itemMeta}>
-                {item.esoClass ? <Text style={s.badge}>{item.esoClass}</Text> : null}
-                {item.role ? (
-                  <Text style={[s.badge, { color: ROLE_COLORS[item.role] ?? colors.textSecondary }]}>
-                    {item.role}
-                  </Text>
-                ) : null}
-                {item.gamePatch ? <Text style={s.badge}>{item.gamePatch}</Text> : null}
+                {item.class_name ? <Text style={s.badge}>{item.class_name}</Text> : null}
+                {item.race_name ? <Text style={s.badge}>{item.race_name}</Text> : null}
+                <Text style={s.badge}>CP {item.champion_points}</Text>
               </View>
+            </View>
+            <View style={s.dailyDots}>
+              <View style={[s.dot, { backgroundColor: item.daily_dungeon_done ? colors.success : colors.error }]} />
+              <View style={[s.dot, { backgroundColor: item.daily_writs_done ? colors.success : colors.error }]} />
             </View>
             <Text style={s.arrow}>›</Text>
           </TouchableOpacity>
         )}
         ItemSeparatorComponent={() => <View style={s.sep} />}
         ListEmptyComponent={
-          <Text style={s.empty}>{loaded ? 'No builds yet.\nTap + to add one.' : ''}</Text>
+          <Text style={s.empty}>{loaded ? 'No characters synced yet.\nTap ⇅ to sync from Nextcloud.' : ''}</Text>
         }
       />
-
-      {/* FAB */}
-      <TouchableOpacity
-        style={s.fab}
-        onPress={() => navigation.navigate('BuildEditor', { buildId: null })}
-      >
-        <Text style={s.fabText}>+</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -150,7 +131,7 @@ const s = StyleSheet.create({
   },
   iconBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border },
   iconBtnText: { color: colors.primary, fontSize: font.lg },
-  chipRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.xs },
+  chipRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.xs, flexWrap: 'wrap' },
   chip: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: font.xs, color: colors.text },
@@ -160,14 +141,9 @@ const s = StyleSheet.create({
   itemName: { fontSize: font.md, fontWeight: '700', color: colors.text },
   itemMeta: { flexDirection: 'row', gap: spacing.sm, marginTop: 4 },
   badge: { fontSize: font.xs, color: colors.textSecondary },
-  arrow: { fontSize: font.xl, color: colors.border, marginLeft: spacing.sm },
+  dailyDots: { flexDirection: 'row', gap: 4, marginRight: spacing.sm },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  arrow: { fontSize: font.xl, color: colors.border, marginLeft: spacing.xs },
   sep: { height: spacing.xs },
   empty: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.xl, fontSize: font.md },
-  fab: {
-    position: 'absolute', bottom: spacing.xl, right: spacing.xl,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
-  },
-  fabText: { fontSize: 28, color: colors.background, fontWeight: '300', lineHeight: 32 },
 });

@@ -8,6 +8,8 @@ import BuildsScreen     from './src/screens/BuildsScreen';
 import BuildDetailScreen from './src/screens/BuildDetailScreen';
 import BuildEditorScreen from './src/screens/BuildEditorScreen';
 import SettingsScreen   from './src/screens/SettingsScreen';
+import CharactersScreen       from './src/screens/CharactersScreen';
+import CharacterDetailScreen  from './src/screens/CharacterDetailScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -39,6 +41,8 @@ export default function App() {
         <Stack.Screen name="BuildDetail" component={BuildDetailScreen} options={{ title: '' }} />
         <Stack.Screen name="BuildEditor" component={BuildEditorScreen} options={{ title: 'Build' }} />
         <Stack.Screen name="Settings"    component={SettingsScreen}    options={{ title: 'Settings' }} />
+        <Stack.Screen name="Characters"      component={CharactersScreen}      options={{ title: 'Characters' }} />
+        <Stack.Screen name="CharacterDetail" component={CharacterDetailScreen} options={{ title: '' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

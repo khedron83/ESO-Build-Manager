@@ -2,7 +2,8 @@
 
 React Native + Expo companion app for eso-build-manager. Read/edit builds on
 Android, two-way sync to the same Nextcloud `ESO-Builds/` WebDAV folder the
-desktop app uses.
+desktop app uses. Also browses character data (bio/stats/dailies/inventory/
+bank/champion points) synced read-only from `ESO-Characters/`.
 
 ## Project Layout
 
@@ -12,15 +13,20 @@ src/
 │   ├── BuildsScreen.tsx        # List + search/filter + sync button + FAB
 │   ├── BuildDetailScreen.tsx
 │   ├── BuildEditorScreen.tsx
-│   └── SettingsScreen.tsx      # Nextcloud url/username/password
+│   ├── SettingsScreen.tsx      # Nextcloud url/username/password
+│   ├── CharactersScreen.tsx        # List + search/account-filter + sync button
+│   └── CharacterDetailScreen.tsx   # Bio/Dailies/Stats/Currencies/CP/Inventory, sectioned
 ├── hooks/
 │   ├── useBuilds.ts            # Local React state over storage.ts, call refresh() after any out-of-band storage write
-│   └── useSettings.ts
+│   ├── useSettings.ts
+│   └── useCharacters.ts        # Same refresh()-after-sync caveat as useBuilds
 ├── utils/
 │   ├── storage.ts              # AsyncStorage CRUD, same JSON shape as desktop's export_build_dict
 │   ├── sync.ts                 # WebDAV GET/PUT against Nextcloud + manifest file (no PROPFIND/MKCOL, see below)
 │   ├── skillData.ts
-│   └── md5.ts
+│   ├── md5.ts
+│   ├── characterStorage.ts     # AsyncStorage, replace-all (not per-record merge like builds)
+│   └── characterSync.ts        # Read-only GET against ESO-Characters/, see below
 └── data/constants.ts
 ```
 
@@ -48,6 +54,21 @@ anything that writes to `storage.ts` outside the hook's own `saveBuild`/`deleteB
 `importBuild` wrappers (sync being the main case) must call `refresh()` afterward or the
 screen silently shows stale data despite storage being correct. `BuildsScreen.handleSync`
 does this after `sync()` resolves.
+
+## Character sync (`utils/characterSync.ts`)
+
+Read-only: character data always originates from the game addon (WornGear) via the desktop
+app, never edited on mobile, so this is GET-only against `ESO-Characters/{slug}.json` +
+`ESO-Characters/_index.json` — no upload, no merge, no conflict handling. Desktop's
+`sync_characters()` (`eso_build_manager/sync/nextcloud.py`) writes the manifest and does a
+full `dataclasses.asdict(Character)` dump per character, so the mobile `Character` type
+(`src/types/index.ts`) intentionally keeps desktop's snake_case field names verbatim instead
+of a camelCase mapping layer like `Build` has — there's no round-trip to keep in sync for a
+read-only path, so the mapping layer would be pure overhead.
+
+`characterStorage.ts` replaces the entire local cache on every sync (`replaceAllCharacters`)
+rather than merging individual records — desktop always has the freshest full snapshot, so
+there's nothing to merge.
 
 ## TODOs
 

@@ -900,7 +900,7 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
     def _sync_now(self):
-        from eso_build_manager.sync.nextcloud import NextcloudSyncError, sync_all
+        from eso_build_manager.sync.nextcloud import NextcloudSyncError, sync_all, sync_characters
         from eso_build_manager.ui.settings_dialog import SettingsDialog
 
         client = SettingsDialog.get_sync_client()
@@ -920,9 +920,20 @@ class MainWindow(QMainWindow):
             self._status.showMessage('Sync failed.')
             return
 
+        # Character data (bio/stats/dailies/inventory/bank/etc) is one-way,
+        # desktop -> Nextcloud, for the mobile app to read -- it always
+        # originates from the game addon, never edited remotely.
+        char_uploaded = 0
+        try:
+            char_uploaded, char_errors = sync_characters(client, self._all_chars)
+            errors.extend(char_errors)
+        except NextcloudSyncError as e:
+            errors.append(f'Character sync: {e}')
+
         parts = []
-        if uploaded:  parts.append(f'{uploaded} uploaded')
-        if downloaded: parts.append(f'{downloaded} downloaded')
+        if uploaded:  parts.append(f'{uploaded} builds uploaded')
+        if downloaded: parts.append(f'{downloaded} builds downloaded')
+        if char_uploaded: parts.append(f'{char_uploaded} characters uploaded')
         self._status.showMessage('Sync done: ' + (', '.join(parts) if parts else 'nothing to sync') + '.')
 
         if errors:

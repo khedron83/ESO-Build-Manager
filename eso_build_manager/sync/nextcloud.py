@@ -7,6 +7,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 REMOTE_DIR = "ESO-Builds"
+CHAR_REMOTE_DIR = "ESO-Characters"
 _DAV_NS = {"d": "DAV:"}
 
 
@@ -22,8 +23,8 @@ class NextcloudSync:
         self._session.auth = HTTPBasicAuth(username, password)
         self._session.verify = verify_ssl
 
-    def _dav_url(self, path: str = "") -> str:
-        base = f"{self.base_url}/remote.php/dav/files/{self._username}/{REMOTE_DIR}"
+    def _dav_url(self, path: str = "", remote_dir: str = REMOTE_DIR) -> str:
+        base = f"{self.base_url}/remote.php/dav/files/{self._username}/{remote_dir}"
         return f"{base}/{path}" if path else base + "/"
 
     def test_connection(self) -> None:
@@ -35,11 +36,11 @@ class NextcloudSync:
         if not resp.ok:
             raise NextcloudSyncError(f"Connection failed: HTTP {resp.status_code}")
 
-    def ensure_directory(self) -> None:
-        resp = self._session.request("MKCOL", self._dav_url())
+    def ensure_directory(self, remote_dir: str = REMOTE_DIR) -> None:
+        resp = self._session.request("MKCOL", self._dav_url(remote_dir=remote_dir))
         if resp.status_code not in (201, 405):
             raise NextcloudSyncError(
-                f"Could not create {REMOTE_DIR}/: HTTP {resp.status_code}"
+                f"Could not create {remote_dir}/: HTTP {resp.status_code}"
             )
 
     def list_remote_builds(self) -> list[str]:
@@ -77,6 +78,24 @@ class NextcloudSync:
         if not resp.ok:
             raise NextcloudSyncError(f"Download {filename}: HTTP {resp.status_code}")
         return resp.json()
+
+    def upload_character(self, slug: str, data: dict) -> None:
+        resp = self._session.put(
+            self._dav_url(f"{slug}.json", remote_dir=CHAR_REMOTE_DIR),
+            data=json.dumps(data, indent=2),
+            headers={"Content-Type": "application/json"},
+        )
+        if not resp.ok:
+            raise NextcloudSyncError(f"Upload character {slug}: HTTP {resp.status_code}")
+
+    def upload_character_manifest(self, manifest: dict) -> None:
+        resp = self._session.put(
+            self._dav_url("_index.json", remote_dir=CHAR_REMOTE_DIR),
+            data=json.dumps(manifest, indent=2),
+            headers={"Content-Type": "application/json"},
+        )
+        if not resp.ok:
+            raise NextcloudSyncError(f"Upload character manifest: HTTP {resp.status_code}")
 
 
 def _make_slug(name: str) -> str:
@@ -163,3 +182,43 @@ def sync_all(syncer: NextcloudSync) -> tuple[int, int, list[str]]:
             errors.append(f"Download '{filename}': {e}")
 
     return uploaded, downloaded, errors
+
+
+def sync_characters(syncer: NextcloudSync, chars: list) -> tuple[int, list[str]]:
+    """One-way upload of character data to ESO-Characters/ for the mobile app.
+
+    Character data always originates from the game addon and is never edited
+    remotely, so unlike sync_all() for builds this only ever pushes -- no
+    merge or download-back logic needed. Also writes a manifest (_index.json)
+    since the mobile client can't PROPFIND to list a directory (Android's
+    HttpURLConnection only allows the standard HTTP verbs).
+
+    Returns (uploaded, errors).
+    """
+    import dataclasses
+
+    errors: list[str] = []
+    uploaded = 0
+    syncer.ensure_directory(remote_dir=CHAR_REMOTE_DIR)
+
+    manifest: dict[str, str] = {}
+    for c in chars:
+        base_slug = _make_slug(c.name)
+        slug = base_slug
+        i = 2
+        while slug in manifest:
+            slug = f"{base_slug}_{i}"
+            i += 1
+        try:
+            syncer.upload_character(slug, dataclasses.asdict(c))
+            manifest[slug] = str(c.last_updated)
+            uploaded += 1
+        except Exception as e:
+            errors.append(f"Upload '{c.name}': {e}")
+
+    try:
+        syncer.upload_character_manifest(manifest)
+    except NextcloudSyncError as e:
+        errors.append(f"Manifest: {e}")
+
+    return uploaded, errors
