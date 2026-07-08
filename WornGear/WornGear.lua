@@ -327,6 +327,7 @@ local function ReadCharData()
     return {
         bio = {
             name           = GetUnitName("player"),
+            account        = GetDisplayName(),
             class          = GetUnitClass("player"),
             race           = GetUnitRace("player"),
             alliance       = GetAllianceName(alliance),

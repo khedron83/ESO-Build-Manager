@@ -36,6 +36,7 @@ class InventoryItem:
 @dataclass
 class Character:
     name: str
+    account: str = ''  # ESO @handle this character belongs to, e.g. "@khedron83"
     class_name: str = ''
     race_name: str = ''
     faction_name: str = ''
@@ -144,6 +145,7 @@ def _parse_wg_char(char_name: str, c: dict) -> Character:
 
     return Character(
         name=bio.get('name', char_name),
+        account=bio.get('account', ''),
         class_name=bio.get('class', ''),
         race_name=bio.get('race', ''),
         faction_name=bio.get('alliance', ''),

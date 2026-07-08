@@ -826,6 +826,20 @@ class MainWindow(QMainWindow):
 
         self._setup_menu()
 
+        # Account picker: hidden unless characters from more than one ESO
+        # account show up in the data, since most setups only ever have one.
+        acct_row = QHBoxLayout()
+        acct_row.addWidget(QLabel('Account:'))
+        self._account_picker = QComboBox()
+        self._account_picker.addItem('All Accounts', None)
+        self._account_picker.currentIndexChanged.connect(self._on_account_changed)
+        acct_row.addWidget(self._account_picker)
+        acct_row.addStretch()
+        self._account_row = QWidget()
+        self._account_row.setLayout(acct_row)
+        self._account_row.setVisible(False)
+        lay.addWidget(self._account_row)
+
         self._tabs = QTabWidget()
         lay.addWidget(self._tabs)
 
@@ -913,28 +927,55 @@ class MainWindow(QMainWindow):
         QApplication.processEvents()
         try:
             _sync_from_zeus()
-            chars     = sorted(load_data(), key=lambda c: c.name)
-            ww_data   = load_ww_setups()
-            worn_data = load_worn_gear()
-            cur = self._tabs.currentIndex()
-            self._tabs.clear()
-            self._tabs.addTab(_tab_bio(chars),                        'Bio')
-            self._tabs.addTab(_tab_dailies(chars),                    'Dailies')
-            self._tabs.addTab(_tab_stats(chars),                      'Stats')
-            self._tabs.addTab(_tab_skills(chars, worn_data),           'Skills')
-            self._tabs.addTab(_tab_guilds(chars),                     'Guilds')
-            self._tabs.addTab(_tab_crafting(chars),                   'Crafting')
-            self._tabs.addTab(_tab_champion(chars),                   'Champion')
-            self._tabs.addTab(_tab_inventory(chars),                  'Inventory')
-            self._tabs.addTab(_tab_bank(chars),                       'Bank')
-            self._tabs.addTab(BuildsTab(chars, ww_data, worn_data),   'Builds')
-            self._tabs.setCurrentIndex(max(cur, 0))
-            self._status.showMessage(f'{len(chars)} characters loaded.')
+            self._all_chars = sorted(load_data(), key=lambda c: c.name)
+            self._ww_data   = load_ww_setups()
+            self._worn_data = load_worn_gear()
+            self._update_account_picker()
+            self._rebuild_tabs()
         except Exception as e:
             import traceback; traceback.print_exc()
             self._status.showMessage(f'Error: {e}')
         finally:
             self._reload_action.setEnabled(True)
+
+    def _update_account_picker(self):
+        accounts = sorted({c.account for c in self._all_chars if c.account})
+        previous = self._account_picker.currentData()
+
+        self._account_picker.blockSignals(True)
+        self._account_picker.clear()
+        self._account_picker.addItem('All Accounts', None)
+        for acct in accounts:
+            self._account_picker.addItem(acct, acct)
+        restore_idx = self._account_picker.findData(previous)
+        self._account_picker.setCurrentIndex(restore_idx if restore_idx >= 0 else 0)
+        self._account_picker.blockSignals(False)
+
+        self._account_row.setVisible(len(accounts) > 1)
+
+    def _on_account_changed(self, _idx: int) -> None:
+        self._rebuild_tabs()
+
+    def _rebuild_tabs(self):
+        selected_account = self._account_picker.currentData()
+        chars = self._all_chars if selected_account is None else \
+            [c for c in self._all_chars if c.account == selected_account]
+        ww_data, worn_data = self._ww_data, self._worn_data
+
+        cur = self._tabs.currentIndex()
+        self._tabs.clear()
+        self._tabs.addTab(_tab_bio(chars),                        'Bio')
+        self._tabs.addTab(_tab_dailies(chars),                    'Dailies')
+        self._tabs.addTab(_tab_stats(chars),                      'Stats')
+        self._tabs.addTab(_tab_skills(chars, worn_data),           'Skills')
+        self._tabs.addTab(_tab_guilds(chars),                     'Guilds')
+        self._tabs.addTab(_tab_crafting(chars),                   'Crafting')
+        self._tabs.addTab(_tab_champion(chars),                   'Champion')
+        self._tabs.addTab(_tab_inventory(chars),                  'Inventory')
+        self._tabs.addTab(_tab_bank(chars),                       'Bank')
+        self._tabs.addTab(BuildsTab(chars, ww_data, worn_data),   'Builds')
+        self._tabs.setCurrentIndex(max(cur, 0))
+        self._status.showMessage(f'{len(chars)} characters loaded.')
 
 
 if __name__ == '__main__':
