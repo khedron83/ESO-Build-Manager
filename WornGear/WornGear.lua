@@ -312,7 +312,7 @@ end
 -- something the 7 regular daily writs grant, so it never fires for a normal
 -- writ turn-in.
 local function ReadDailyWritStatus(charName)
-    local tracking = WornGearSV[charName] and WornGearSV[charName].dailyTracking
+    local tracking = WornGearSV[charName] and WornGearSV[charName].__dailyTracking__
     local lastCompleted = tracking and tracking.lastWritCompleted or 0
     local startOfToday = GetTimeStamp() - GetSecondsSinceMidnight()
     return lastCompleted >= startOfToday
@@ -404,10 +404,11 @@ end
 
 local function Snapshot()
     local charName = GetUnitName("player")
-    -- dailyTracking lives outside the builds table but Snapshot() below
+    -- __dailyTracking__ lives outside the builds table but Snapshot() below
     -- replaces WornGearSV[charName] wholesale, so it has to be carried over
-    -- explicitly rather than just left alone.
-    local prevDailyTracking = WornGearSV[charName] and WornGearSV[charName].dailyTracking
+    -- explicitly rather than just left alone. Double-underscore name keeps
+    -- it out of the armory builds list, same convention as __char__.
+    local prevDailyTracking = WornGearSV[charName] and WornGearSV[charName].__dailyTracking__
     local builds = {}
     local count = 0
 
@@ -484,7 +485,7 @@ local function Snapshot()
     builds["__char__"] = ReadCharData()
 
     WornGearSV[charName] = builds
-    WornGearSV[charName].dailyTracking = prevDailyTracking or { lastWritCompleted = 0 }
+    WornGearSV[charName].__dailyTracking__ = prevDailyTracking or { lastWritCompleted = 0 }
     d("WornGear: saved " .. count .. " armory builds for " .. charName)
 end
 
@@ -516,8 +517,8 @@ EVENT_MANAGER:RegisterForEvent("WornGear_WritComplete", EVENT_QUEST_COMPLETE, fu
     if questType ~= QUEST_TYPE_CRAFTING then return end
     local charName = GetUnitName("player")
     WornGearSV[charName] = WornGearSV[charName] or {}
-    WornGearSV[charName].dailyTracking = WornGearSV[charName].dailyTracking or {}
-    WornGearSV[charName].dailyTracking.lastWritCompleted = GetTimeStamp()
+    WornGearSV[charName].__dailyTracking__ = WornGearSV[charName].__dailyTracking__ or {}
+    WornGearSV[charName].__dailyTracking__.lastWritCompleted = GetTimeStamp()
 
     local char = WornGearSV[charName].__char__
     if char then
