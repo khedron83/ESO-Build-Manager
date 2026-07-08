@@ -539,18 +539,37 @@ def _tab_bank(chars: list[model.Character]) -> QWidget:
     layout.addWidget(_make_view(CharTable(headers, rows)), 1)
 
     if global_names:
+        # Bank is shared per ESO account, not globally -- when characters from
+        # more than one account are shown together (e.g. "All Accounts"), each
+        # account has its own separate bank and must be shown as its own row
+        # rather than picking one character's value and silently dropping the
+        # rest.
+        by_account: dict[str, model.Character] = {}
+        for c in chars:
+            by_account.setdefault(c.account, c)
+        show_account_labels = len(by_account) > 1
+
         bar = QFrame()
         bar.setStyleSheet('QFrame { border-top: 1px solid rgba(128,128,128,0.25); }')
-        grid = QGridLayout(bar)
-        grid.setContentsMargins(12, 10, 12, 10)
-        for col, name in enumerate(global_names):
-            value = next(c.bank_currencies[name] for c in chars if name in c.bank_currencies)
-            lbl = QLabel(name)
-            lbl.setStyleSheet('font-size: 11px; color: palette(placeholderText);')
-            val = QLabel(_n(value))
-            f = val.font(); f.setPointSize(f.pointSize() + 2); f.setBold(True); val.setFont(f)
-            grid.addWidget(lbl, 0, col, Qt.AlignCenter)
-            grid.addWidget(val, 1, col, Qt.AlignCenter)
+        bar_layout = QVBoxLayout(bar)
+        bar_layout.setContentsMargins(12, 10, 12, 10)
+        bar_layout.setSpacing(8)
+
+        for acct, rep in by_account.items():
+            if show_account_labels:
+                acct_lbl = QLabel(acct or 'Unknown Account')
+                acct_lbl.setStyleSheet('font-size: 11px; font-weight: bold; color: palette(placeholderText);')
+                bar_layout.addWidget(acct_lbl)
+            grid = QGridLayout()
+            for col, name in enumerate(global_names):
+                value = rep.bank_currencies.get(name, 0)
+                lbl = QLabel(name)
+                lbl.setStyleSheet('font-size: 11px; color: palette(placeholderText);')
+                val = QLabel(_n(value))
+                f = val.font(); f.setPointSize(f.pointSize() + 2); f.setBold(True); val.setFont(f)
+                grid.addWidget(lbl, 0, col, Qt.AlignCenter)
+                grid.addWidget(val, 1, col, Qt.AlignCenter)
+            bar_layout.addLayout(grid)
         layout.addWidget(bar)
 
     return widget
