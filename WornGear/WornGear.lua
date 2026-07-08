@@ -301,10 +301,29 @@ local function ReadInventory()
     return items, soulsEmpty, soulsFilled
 end
 
+-- ESO's daily reset is at 10:00 UTC, not midnight in any timezone (confirmed
+-- in-game via Dolgubon's "daily reset in Xh Ym" countdown). GetTimeStamp() is
+-- a plain Unix epoch (UTC-based), so this works out the most recent 10:00 UTC
+-- boundary directly from it -- deliberately not GetSecondsSinceMidnight(),
+-- which reflects the local system clock's midnight and would be off by
+-- however many hours the machine's timezone is from UTC (e.g. an hour early
+-- every day on a BST/UTC+1 machine).
+local RESET_HOUR_UTC = 10
+local function GetLastDailyResetTimestamp()
+    local now = GetTimeStamp()
+    local secondsSinceMidnightUTC = now % 86400
+    local resetOffset = RESET_HOUR_UTC * 3600
+    if secondsSinceMidnightUTC >= resetOffset then
+        return now - secondsSinceMidnightUTC + resetOffset
+    else
+        return now - secondsSinceMidnightUTC + resetOffset - 86400
+    end
+end
+
 -- Writ turn-ins don't have a clean "already claimed today" API the way the
 -- daily random dungeon does (see dailies.dungeonDone below), so this tracks
 -- the last time a QUEST_TYPE_CRAFTING quest was completed (see the
--- EVENT_QUEST_COMPLETE handler below) and compares that against today's
+-- EVENT_QUEST_COMPLETE handler below) and compares that against the last
 -- reset boundary. Persisted per-character since Snapshot() overwrites
 -- WornGearSV[charName] wholesale on every call.
 --
@@ -314,8 +333,7 @@ end
 local function ReadDailyWritStatus(charName)
     local tracking = WornGearSV[charName] and WornGearSV[charName].__dailyTracking__
     local lastCompleted = tracking and tracking.lastWritCompleted or 0
-    local startOfToday = GetTimeStamp() - GetSecondsSinceMidnight()
-    return lastCompleted >= startOfToday
+    return lastCompleted >= GetLastDailyResetTimestamp()
 end
 
 local function ReadCharData()
